@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Get,
   HttpCode,
   InternalServerErrorException,
   Post,
@@ -22,11 +21,6 @@ import { jwtConstants } from 'src/utils/jwt-constants';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  @Get()
-  getUsers() {
-    return this.authService.getUsers();
-  }
-
   @Post('signup')
   @HttpCode(201)
   @UsePipes(new ZodValidationPipe(createUserSchema))
@@ -44,28 +38,28 @@ export class AuthController {
     const { data, status, message } =
       await this.authService.signinUser(signinDto);
 
-    if (status !== 'success') {
+    if (status !== 'success' || !data) {
       throw new InternalServerErrorException(message);
     }
 
     const isProd = process.env.NODE_ENV === 'production';
 
-    // Set refresh token cookie
-    res.cookie('brevpulse_session_token', data!.refreshToken, {
+    const jwtTokens = jwtConstants();
+
+    res.cookie('bp_rtoken', data.refreshToken, {
       httpOnly: true,
       secure: isProd,
       sameSite: 'lax',
       path: '/',
-      expires: new Date(jwtConstants.refresh.expiresAt),
+      expires: new Date(Date.now() + jwtTokens.refresh.expiresAt),
     });
 
-    // Set access token cookie
-    res.cookie('brevpulse_access_token', data!.accessToken, {
+    res.cookie('bp_atoken', data.accessToken, {
       httpOnly: true,
       secure: isProd,
       sameSite: 'lax',
       path: '/',
-      expires: new Date(jwtConstants.access.expiresAt),
+      expires: new Date(Date.now() + jwtTokens.access.expiresAt),
     });
 
     return { status, message };
