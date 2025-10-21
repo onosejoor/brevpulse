@@ -13,6 +13,8 @@ import argon2 from 'argon2';
 import { JwtService } from '@nestjs/jwt';
 import { jwtConstants } from 'src/utils/jwt-constants';
 import { MailService } from '../mail/mail.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 @Injectable()
 export class AuthService {
@@ -20,6 +22,7 @@ export class AuthService {
     @InjectModel(User.name) private readonly userModel: Model<User>,
     private jwtService: JwtService,
     private mailService: MailService,
+    @InjectQueue('email-queue') private emailQueue: Queue,
   ) {}
 
   async createUser(dto: CreateUserDto): Promise<ApiResDTO> {
@@ -33,10 +36,10 @@ export class AuthService {
       ...dto,
     });
 
-    await newUser.save();
+    // await newUser.save();
     const jwtTokens = jwtConstants();
 
-    const emailoken = this.mailService.generateMailToken(
+    const emailToken = this.mailService.generateMailToken(
       {
         _id: newUser.id,
         email: newUser.email,
@@ -44,22 +47,10 @@ export class AuthService {
       jwtTokens.email.expiresAt,
     );
 
-    const verifyEmailTemplate = this.mailService.formatVerificationEmail(
-      newUser.name,
-      emailoken,
-    );
-
-    const sendVerificationEmail = await this.mailService.sendMail(
-      newUser.email,
-      'Verify Your BrevPulse Email',
-      verifyEmailTemplate,
-    );
-
-    if (sendVerificationEmail.success) {
-      console.log('Send Email Successful');
-    } else {
-      console.log('Error sending mail: ', sendVerificationEmail.message);
-    }
+    await this.emailQueue.add('verify-email', {
+      type: 'verification',
+      data: { token: emailToken, name: newUser.name, email: newUser.email },
+    });
 
     return {
       status: 'success' as Status,
