@@ -12,12 +12,14 @@ import { User } from 'src/mongodb/schemas/user.schema';
 import argon2 from 'argon2';
 import { JwtService } from '@nestjs/jwt';
 import { jwtConstants } from 'src/utils/jwt-constants';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class AuthService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<User>,
     private jwtService: JwtService,
+    private mailService: MailService,
   ) {}
 
   async createUser(dto: CreateUserDto): Promise<ApiResDTO> {
@@ -32,10 +34,36 @@ export class AuthService {
     });
 
     await newUser.save();
+    const jwtTokens = jwtConstants();
+
+    const emailoken = this.mailService.generateMailToken(
+      {
+        _id: newUser.id,
+        email: newUser.email,
+      },
+      jwtTokens.email.expiresAt,
+    );
+
+    const verifyEmailTemplate = this.mailService.formatVerificationEmail(
+      newUser.name,
+      emailoken,
+    );
+
+    const sendVerificationEmail = await this.mailService.sendMail(
+      newUser.email,
+      'Verify Your BrevPulse Email',
+      verifyEmailTemplate,
+    );
+
+    if (sendVerificationEmail.success) {
+      console.log('Send Email Successful');
+    } else {
+      console.log('Error sending mail: ', sendVerificationEmail.message);
+    }
 
     return {
       status: 'success' as Status,
-      message: `Welcome To Brevpulse, ${dto.name}`,
+      message: `A verification mail has been sent to ${newUser.email}, kindly verify your mail to continue`,
     };
   }
 
@@ -66,19 +94,15 @@ export class AuthService {
     const jwtTokens = jwtConstants();
 
     const [refreshToken, accessToken] = await Promise.all([
-      this.jwtService.signAsync(
-        { ...payload, expiresAt: jwtTokens.refresh.expiresAt },
-        {
-          secret: jwtTokens.refresh.secret,
-        },
-      ),
+      this.jwtService.signAsync(payload, {
+        secret: jwtTokens.refresh.secret,
+        expiresIn: jwtTokens.refresh.expiresAt,
+      }),
 
-      this.jwtService.signAsync(
-        { ...payload, expiresAt: jwtTokens.access.expiresAt },
-        {
-          secret: jwtTokens.access.secret,
-        },
-      ),
+      this.jwtService.signAsync(payload, {
+        expiresIn: jwtTokens.access.expiresAt,
+        secret: jwtTokens.access.secret,
+      }),
     ]);
 
     return {
