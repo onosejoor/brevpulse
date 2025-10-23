@@ -15,6 +15,12 @@ import { jwtConstants } from 'src/utils/jwt-constants';
 import { MailService } from '../mail/mail.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
+import { Response } from 'express';
+
+class TokenRes {
+  refreshToken: string;
+  accessToken: string;
+}
 
 @Injectable()
 export class AuthService {
@@ -36,10 +42,10 @@ export class AuthService {
       ...dto,
     });
 
-    // await newUser.save();
+    await newUser.save();
     const jwtTokens = jwtConstants();
 
-    const emailToken = this.mailService.generateMailToken(
+    const emailToken = await this.mailService.generateMailToken(
       {
         _id: newUser.id,
         email: newUser.email,
@@ -58,9 +64,56 @@ export class AuthService {
     };
   }
 
-  async signinUser(
-    dto: SigninUserDTO,
-  ): Promise<ApiResDTO<{ refreshToken: string; accessToken: string }>> {
+  async verifyEmail(token: string): Promise<ApiResDTO<TokenRes>> {
+    const { status, data, message } =
+      await this.mailService.decodeMailToken(token);
+
+    if (status !== 'success') {
+      return {
+        status: status as Status,
+        message,
+      };
+    }
+
+    const findUser = await this.userModel.findById(data?._id);
+
+    if (!findUser) {
+      return {
+        status: 'error',
+        message: 'User does not exist',
+      };
+    }
+
+    await findUser.updateOne({ email_verified: true });
+
+    const payload = {
+      email_verified: true,
+      id: findUser._id,
+      subscription: findUser.subscription,
+    };
+
+    const jwtTokens = jwtConstants();
+
+    const [refreshToken, accessToken] = await Promise.all([
+      this.jwtService.signAsync(payload, {
+        secret: jwtTokens.refresh.secret,
+        expiresIn: jwtTokens.refresh.expiresAt,
+      }),
+
+      this.jwtService.signAsync(payload, {
+        expiresIn: jwtTokens.access.expiresAt,
+        secret: jwtTokens.access.secret,
+      }),
+    ]);
+
+    return {
+      data: { refreshToken, accessToken },
+      status: 'success',
+      message: 'Email Verified Successfully',
+    };
+  }
+
+  async signinUser(dto: SigninUserDTO): Promise<ApiResDTO<TokenRes>> {
     const user = await this.userModel
       .findOne({ email: dto.email })
       .select('+password +email +_id')
@@ -76,7 +129,6 @@ export class AuthService {
     }
 
     const payload = {
-      name: user.name,
       email_verified: user.email_verified,
       id: user._id,
       subscription: user.subscription,
@@ -101,5 +153,27 @@ export class AuthService {
       data: { refreshToken, accessToken },
       message: `Welcome ${user.name}`,
     };
+  }
+
+  sendCookies(res: Response, data: TokenRes) {
+    const isProd = process.env.NODE_ENV === 'production';
+
+    const jwtTokens = jwtConstants();
+
+    res.cookie('bp_rtoken', data.refreshToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      path: '/',
+      expires: new Date(Date.now() + jwtTokens.refresh.expiresAt),
+    });
+
+    res.cookie('bp_atoken', data.accessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      path: '/',
+      expires: new Date(Date.now() + jwtTokens.access.expiresAt),
+    });
   }
 }

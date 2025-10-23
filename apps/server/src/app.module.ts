@@ -4,24 +4,19 @@ import { ConfigModule } from '@nestjs/config';
 import { mongooseConfigFactory } from './mongodb/connection.factory';
 import { AuthModule } from './modules/auth/auth.module';
 import { BullModule } from '@nestjs/bullmq';
+import { forRootFactory } from './common/factories/redis.factory';
 
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }),
+    ConfigModule.forRoot({
+      isGlobal: true,
+    }),
+    BullModule.forRootAsync({
+      useFactory: forRootFactory,
+    }),
     MongooseModule.forRootAsync({
       imports: [ConfigModule],
       useFactory: mongooseConfigFactory,
-    }),
-    BullModule.forRoot({
-      connection: {
-        url: process.env.REDIS_URL,
-      },
-      defaultJobOptions: {
-        attempts: 10,
-        backoff: { type: 'exponential', delay: 2000 },
-        removeOnComplete: true,
-        removeOnFail: false,
-      },
     }),
     AuthModule,
   ],

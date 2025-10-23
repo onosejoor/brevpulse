@@ -23,6 +23,7 @@ export class MailWorker extends WorkerHost {
       name,
     } = job;
 
+    const now = Date.now();
     console.log(`Email Queue process recieved for job: ${name}`);
 
     try {
@@ -39,12 +40,13 @@ export class MailWorker extends WorkerHost {
             );
 
             console.log(`Job finished for email queue, type: ${type}`);
+            console.log(`Job Time ${Date.now() - now}ms`);
           }
 
           break;
 
         default:
-          console.log('Job type is unknown');
+          console.warn('Job type is unknown');
           break;
       }
     } catch (error) {

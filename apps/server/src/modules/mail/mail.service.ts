@@ -4,12 +4,19 @@ import { verifyEmailTemp } from './constants';
 import axios from 'axios';
 import { getAxiosErrorMessage } from '@repo/utils/utils';
 
+class DecodeJwtData {
+  _id: string;
+  email: string;
+  exp: number;
+  iat: number;
+}
+
 @Injectable()
 export class MailService {
   constructor(private jwtService: JwtService) {}
 
-  generateMailToken(payload: object, expiresIn?: number) {
-    const signedToken = this.jwtService.sign(
+  async generateMailToken(payload: object, expiresIn?: number) {
+    const signedToken = await this.jwtService.signAsync(
       { ...payload },
       {
         secret: process.env.EMAIL_SECRET,
@@ -18,6 +25,21 @@ export class MailService {
     );
 
     return signedToken;
+  }
+
+  async decodeMailToken(token: string) {
+    try {
+      const decodedData = await this.jwtService.verifyAsync<DecodeJwtData>(
+        token,
+        {
+          secret: process.env.EMAIL_SECRET,
+        },
+      );
+
+      return { data: decodedData, status: 'success' };
+    } catch (error) {
+      return { message: error, status: 'error' };
+    }
   }
 
   formatVerificationEmail(name: string, token: string) {

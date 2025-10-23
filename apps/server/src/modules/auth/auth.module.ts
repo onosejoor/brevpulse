@@ -6,21 +6,14 @@ import { User, UserSchema } from 'src/mongodb/schemas/user.schema';
 import { JwtModule } from '@nestjs/jwt';
 import { MailModule } from '../mail/mail.module';
 import { BullModule } from '@nestjs/bullmq';
+import { registerQueueFatory } from 'src/common/factories/redis.factory';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
-    BullModule.registerQueue({
+    BullModule.registerQueueAsync({
       name: 'email-queue',
-      connection: {
-        url: process.env.REDIS_URL,
-      },
-      defaultJobOptions: {
-        attempts: 5,
-        backoff: { type: 'exponential', delay: 5000 },
-        removeOnComplete: true,
-        removeOnFail: false,
-      },
+      useFactory: registerQueueFatory,
     }),
     JwtModule.register({ global: true }),
     MailModule,

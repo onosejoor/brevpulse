@@ -130,7 +130,7 @@ export const verifyEmailTemp = `
 
         <p>Once verified, you can start receiving your daily digest and use BrevPulse without any restrictions.</p>
 
-        <p class="note">This link will expire in 24 hours. If you didn’t sign up for BrevPulse, you can safely ignore this email.</p>
+        <p class="note">This link will expire in 24 hours. If you didn't sign up for BrevPulse, you can safely ignore this email.</p>
 
         <div class="signature">
             <p>See you in your first digest!<br><br>

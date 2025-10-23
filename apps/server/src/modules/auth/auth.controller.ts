@@ -1,9 +1,11 @@
 import {
   Body,
   Controller,
+  Get,
   HttpCode,
   InternalServerErrorException,
   Post,
+  Query,
   Res,
   UsePipes,
 } from '@nestjs/common';
@@ -15,7 +17,6 @@ import {
   signinUserSchema,
 } from '@repo/shared-types/auth.type';
 import { type Response } from 'express';
-import { jwtConstants } from 'src/utils/jwt-constants';
 
 @Controller('auth')
 export class AuthController {
@@ -26,6 +27,26 @@ export class AuthController {
   @UsePipes(new ZodValidationPipe(createUserSchema))
   createUser(@Body() createDto: CreateUserDto) {
     return this.authService.createUser(createDto);
+  }
+
+  @Get('verify-email')
+  @HttpCode(200)
+  async verifyEmail(
+    @Query('token') token: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const { data, status, message } = await this.authService.verifyEmail(token);
+
+    if (status !== 'success') {
+      throw new InternalServerErrorException(message);
+    }
+
+    this.authService.sendCookies(res, data!);
+
+    return {
+      status: 'success',
+      message,
+    };
   }
 
   @Post('signin')
@@ -42,25 +63,7 @@ export class AuthController {
       throw new InternalServerErrorException(message);
     }
 
-    const isProd = process.env.NODE_ENV === 'production';
-
-    const jwtTokens = jwtConstants();
-
-    res.cookie('bp_rtoken', data.refreshToken, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: 'lax',
-      path: '/',
-      expires: new Date(Date.now() + jwtTokens.refresh.expiresAt),
-    });
-
-    res.cookie('bp_atoken', data.accessToken, {
-      httpOnly: true,
-      secure: isProd,
-      sameSite: 'lax',
-      path: '/',
-      expires: new Date(Date.now() + jwtTokens.access.expiresAt),
-    });
+    this.authService.sendCookies(res, data);
 
     return { status, message };
   }
