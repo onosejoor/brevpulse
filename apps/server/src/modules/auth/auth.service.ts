@@ -8,14 +8,14 @@ import { Status } from '@repo/shared-types/globals';
 import { Model } from 'mongoose';
 import { ApiResDTO } from 'src/dtos/api.response.dto';
 import { CreateUserDto, SigninUserDTO } from 'src/dtos/auth.dto';
-import { User } from 'src/mongodb/schemas/user.schema';
+import { User, UserDocument } from 'src/mongodb/schemas/user.schema';
 import argon2 from 'argon2';
-import { JwtService } from '@nestjs/jwt';
-import { jwtConstants } from 'src/utils/jwt-constants';
+import { jwtConstants, jwtConstantstype } from 'src/utils/jwt-constants';
 import { MailService } from '../mail/mail.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { Response } from 'express';
+import { Request, Response } from 'express';
+import { JwtCustomService } from '../jwt/jwt.service';
 
 class TokenRes {
   refreshToken: string;
@@ -24,12 +24,16 @@ class TokenRes {
 
 @Injectable()
 export class AuthService {
+  private jwtTokens: jwtConstantstype;
+
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<User>,
-    private jwtService: JwtService,
+    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    private customJwtService: JwtCustomService,
     private mailService: MailService,
     @InjectQueue('email-queue') private emailQueue: Queue,
-  ) {}
+  ) {
+    this.jwtTokens = jwtConstants();
+  }
 
   async createUser(dto: CreateUserDto): Promise<ApiResDTO> {
     const userExists = await this.userModel.exists({ email: dto.email });
@@ -43,14 +47,13 @@ export class AuthService {
     });
 
     await newUser.save();
-    const jwtTokens = jwtConstants();
 
     const emailToken = await this.mailService.generateMailToken(
       {
         _id: newUser.id,
         email: newUser.email,
       },
-      jwtTokens.email.expiresAt,
+      this.jwtTokens.email.jwtExpiresSeconds,
     );
 
     await this.emailQueue.add('verify-email', {
@@ -88,23 +91,12 @@ export class AuthService {
 
     const payload = {
       email_verified: true,
-      id: findUser._id,
+      id: findUser._id as string,
       subscription: findUser.subscription,
     };
 
-    const jwtTokens = jwtConstants();
-
-    const [refreshToken, accessToken] = await Promise.all([
-      this.jwtService.signAsync(payload, {
-        secret: jwtTokens.refresh.secret,
-        expiresIn: jwtTokens.refresh.expiresAt,
-      }),
-
-      this.jwtService.signAsync(payload, {
-        expiresIn: jwtTokens.access.expiresAt,
-        secret: jwtTokens.access.secret,
-      }),
-    ]);
+    const { refreshToken, accessToken } =
+      await this.customJwtService.generateAuthTokens(payload);
 
     return {
       data: { refreshToken, accessToken },
@@ -130,23 +122,14 @@ export class AuthService {
 
     const payload = {
       email_verified: user.email_verified,
-      id: user._id,
+      id: user._id as string,
       subscription: user.subscription,
     };
 
-    const jwtTokens = jwtConstants();
+    console.log(payload);
 
-    const [refreshToken, accessToken] = await Promise.all([
-      this.jwtService.signAsync(payload, {
-        secret: jwtTokens.refresh.secret,
-        expiresIn: jwtTokens.refresh.expiresAt,
-      }),
-
-      this.jwtService.signAsync(payload, {
-        expiresIn: jwtTokens.access.expiresAt,
-        secret: jwtTokens.access.secret,
-      }),
-    ]);
+    const { refreshToken, accessToken } =
+      await this.customJwtService.generateAuthTokens(payload);
 
     return {
       status: 'success',
@@ -155,17 +138,19 @@ export class AuthService {
     };
   }
 
+  async refreshAccessToken(token?: string) {
+    return await this.customJwtService.refreshAccessToken(token);
+  }
+
   sendCookies(res: Response, data: TokenRes) {
     const isProd = process.env.NODE_ENV === 'production';
-
-    const jwtTokens = jwtConstants();
 
     res.cookie('bp_rtoken', data.refreshToken, {
       httpOnly: true,
       secure: isProd,
       sameSite: 'lax',
       path: '/',
-      expires: new Date(Date.now() + jwtTokens.refresh.expiresAt),
+      expires: new Date(Date.now() + this.jwtTokens.refresh.cookieExpiresMs),
     });
 
     res.cookie('bp_atoken', data.accessToken, {
@@ -173,7 +158,7 @@ export class AuthService {
       secure: isProd,
       sameSite: 'lax',
       path: '/',
-      expires: new Date(Date.now() + jwtTokens.access.expiresAt),
+      expires: new Date(Date.now() + this.jwtTokens.access.cookieExpiresMs),
     });
   }
 }

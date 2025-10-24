@@ -5,6 +5,7 @@ import { mongooseConfigFactory } from './mongodb/connection.factory';
 import { AuthModule } from './modules/auth/auth.module';
 import { BullModule } from '@nestjs/bullmq';
 import { forRootFactory } from './common/factories/redis.factory';
+import { UsersModule } from './modules/users/users.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { forRootFactory } from './common/factories/redis.factory';
       useFactory: mongooseConfigFactory,
     }),
     AuthModule,
+    UsersModule,
   ],
 })
 export class AppModule {}

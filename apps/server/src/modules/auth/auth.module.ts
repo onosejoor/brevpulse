@@ -3,10 +3,11 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { MongooseModule } from '@nestjs/mongoose';
 import { User, UserSchema } from 'src/mongodb/schemas/user.schema';
-import { JwtModule } from '@nestjs/jwt';
 import { MailModule } from '../mail/mail.module';
 import { BullModule } from '@nestjs/bullmq';
 import { registerQueueFatory } from 'src/common/factories/redis.factory';
+import { GoogleAuthService } from './google.service';
+import { CustomJwtModule } from '../jwt/jwt.module';
 
 @Module({
   imports: [
@@ -15,10 +16,10 @@ import { registerQueueFatory } from 'src/common/factories/redis.factory';
       name: 'email-queue',
       useFactory: registerQueueFatory,
     }),
-    JwtModule.register({ global: true }),
     MailModule,
+    CustomJwtModule,
   ],
-  providers: [AuthService],
+  providers: [AuthService, GoogleAuthService],
   controllers: [AuthController],
 })
 export class AuthModule {}

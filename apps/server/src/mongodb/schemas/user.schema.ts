@@ -9,6 +9,12 @@ type UserPreferences = {
   filters?: { keywords?: string[] };
 };
 
+type UserToken = {
+  provider: 'google' | 'outlook' | 'slack' | 'github' | 'figma';
+  accessToken: string;
+  refreshToken?: string | undefined;
+};
+
 @Schema({ timestamps: true })
 export class User {
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
@@ -27,6 +33,7 @@ export class User {
   password: string;
 
   @Prop({
+    select: false,
     type: [
       {
         provider: {
@@ -44,11 +51,7 @@ export class User {
       message: 'Too many integrations connected (max 10)',
     },
   })
-  tokens: {
-    provider: 'google' | 'outlook' | 'slack' | 'github' | 'figma';
-    accessToken: string;
-    refreshToken?: string;
-  }[];
+  tokens: UserToken[];
 
   @Prop({ type: Object, default: {} })
   preferences: UserPreferences;
