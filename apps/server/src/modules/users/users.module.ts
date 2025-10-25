@@ -5,10 +5,12 @@ import { UserTokenService } from './common/user-token.service';
 import { MongooseModule } from '@nestjs/mongoose';
 import { User } from '@/mongodb/schemas/user.schema';
 import { UserSchema } from '@/mongodb/schemas/user.schema';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+    RedisModule,
   ],
   controllers: [UsersController],
   providers: [UsersService, UserTokenService],

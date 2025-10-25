@@ -44,8 +44,6 @@ export class AuthController {
   ) {
     const { bp_rtoken } = req.cookies;
 
-    console.log(bp_rtoken, req.cookies);
-
     const accessToken = await this.authService.refreshAccessToken(
       bp_rtoken as string,
     );

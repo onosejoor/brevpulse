@@ -8,14 +8,14 @@ import { AuthGuard } from 'src/common/guards/auth.guard';
 export class UsersController {
   constructor(private readonly userService: UsersService) {}
 
-  @Get()
+  @Get('me')
   findOne(@Req() req: UserRequest) {
     const { user } = req;
 
     return this.userService.findOne(user.id);
   }
 
-  @Patch()
+  @Patch('me')
   update(@Req() req: UserRequest, @Body() updateUserDto: Partial<User>) {
     const { user } = req;
 

@@ -27,14 +27,14 @@ export const jwtConstants = () => ({
   },
   email: {
     secret: process.env.EMAIL_SECRET,
-    // 14 days
-    cookieExpiresMs: 14 * 24 * 60 * 60 * 1000,
-    jwtExpiresSeconds: 14 * 24 * 60 * 60,
+    // 1 day
+    cookieExpiresMs: 24 * 60 * 60 * 1000,
+    jwtExpiresSeconds: 24 * 60 * 60,
   },
   access: {
     secret: process.env.ACCESS_TOKEN_SECRET,
     // 15 minutes
-    cookieExpiresMs: 15 * 60 * 1000,
-    jwtExpiresSeconds: 15 * 60,
+    cookieExpiresMs: 30 * 60 * 1000,
+    jwtExpiresSeconds: 30 * 60,
   },
 });

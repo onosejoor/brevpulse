@@ -47,7 +47,7 @@ export class JwtCustomService {
       throw new UnauthorizedException(`No Refresh Token`);
     }
 
-    const secret = this.jwtTokens.access.secret;
+    const secret = this.jwtTokens.refresh.secret;
 
     try {
       const payload = await this.jwtService.verifyAsync<AuthTokenPayload>(
@@ -57,13 +57,21 @@ export class JwtCustomService {
         },
       );
 
-      const accessToken = await this.jwtService.signAsync(payload, {
-        expiresIn: this.jwtTokens.access.jwtExpiresSeconds,
+      const newPayload = {
+        id: payload.id,
+        email_verified: payload.email_verified,
+        subscription: payload.subscription,
+      };
+
+      const accessToken = await this.jwtService.signAsync(newPayload, {
         secret: this.jwtTokens.access.secret,
+        expiresIn: this.jwtTokens.access.jwtExpiresSeconds,
       });
 
       return accessToken;
-    } catch {
+    } catch (error) {
+      console.log(error);
+
       throw new UnauthorizedException(`Invalid Refresh Token`);
     }
   }

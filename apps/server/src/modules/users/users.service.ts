@@ -3,12 +3,27 @@ import { InjectModel } from '@nestjs/mongoose';
 import { User, UserDocument } from 'src/mongodb/schemas/user.schema';
 import { Model } from 'mongoose';
 import { omitObjKeyVal } from 'src/utils/utils';
+import { RedisService } from '../redis/redis.service';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
+  constructor(
+    @InjectModel(User.name) private userModel: Model<UserDocument>,
+    private redisService: RedisService,
+  ) {}
 
   async findOne(id: string) {
+    const cacheKey = `users:${id}`;
+
+    const cachedData = await this.redisService.getParsedData(cacheKey);
+
+    if (cachedData) {
+      return {
+        status: 'success',
+        data: cachedData,
+      };
+    }
+
     const user = await this.userModel.findById(id).select('+tokens').lean();
 
     if (!user) {
@@ -18,9 +33,16 @@ export class UsersService {
     const synchedTokens = user.tokens.map((token) => token.provider);
     const newObj = omitObjKeyVal(user, ['tokens']);
 
-    return {
+    const responseData = {
       ...newObj,
       synchedTokens,
+    };
+
+    await this.redisService.set(cacheKey, JSON.stringify(responseData));
+
+    return {
+      status: 'success',
+      data: responseData,
     };
   }
 

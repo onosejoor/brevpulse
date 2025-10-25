@@ -14,7 +14,7 @@ import { jwtConstants, jwtConstantstype } from 'src/utils/jwt-constants';
 import { MailService } from '../mail/mail.service';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { Request, Response } from 'express';
+import { type Response } from 'express';
 import { JwtCustomService } from '../jwt/jwt.service';
 
 class TokenRes {
@@ -81,10 +81,11 @@ export class AuthService {
     const findUser = await this.userModel.findById(data?._id);
 
     if (!findUser) {
-      return {
-        status: 'error',
-        message: 'User does not exist',
-      };
+      throw new NotFoundException('User does not exist');
+    }
+
+    if (findUser.email_verified) {
+      throw new BadRequestException('User already verified');
     }
 
     await findUser.updateOne({ email_verified: true });
@@ -125,8 +126,6 @@ export class AuthService {
       id: user._id as string,
       subscription: user.subscription,
     };
-
-    console.log(payload);
 
     const { refreshToken, accessToken } =
       await this.customJwtService.generateAuthTokens(payload);
