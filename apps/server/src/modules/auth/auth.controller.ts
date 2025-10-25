@@ -21,6 +21,8 @@ import {
 import { type Request, type Response } from 'express';
 import { GoogleAuthService } from './google.service';
 import { jwtConstants } from '@/utils/jwt-constants';
+import { Throttle } from '@nestjs/throttler';
+import { throttlerOptions } from '@/utils/utils';
 
 @Controller('auth')
 export class AuthController {
@@ -29,6 +31,7 @@ export class AuthController {
     private googleAuthService: GoogleAuthService,
   ) {}
 
+  @Throttle({ short: throttlerOptions.short })
   @Post('signup')
   @HttpCode(201)
   @UsePipes(new ZodValidationPipe(createUserSchema))
@@ -108,6 +111,7 @@ export class AuthController {
     };
   }
 
+  @Throttle({ short: throttlerOptions.short })
   @Post('signin')
   @HttpCode(200)
   @UsePipes(new ZodValidationPipe(signinUserSchema))

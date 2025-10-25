@@ -18,10 +18,7 @@ export class UsersService {
     const cachedData = await this.redisService.getParsedData(cacheKey);
 
     if (cachedData) {
-      return {
-        status: 'success',
-        data: cachedData,
-      };
+      return cachedData;
     }
 
     const user = await this.userModel.findById(id).select('+tokens').lean();
@@ -34,16 +31,16 @@ export class UsersService {
     const newObj = omitObjKeyVal(user, ['tokens']);
 
     const responseData = {
-      ...newObj,
-      synchedTokens,
+      status: 'success',
+      data: {
+        ...newObj,
+        synchedTokens,
+      },
     };
 
     await this.redisService.set(cacheKey, JSON.stringify(responseData));
 
-    return {
-      status: 'success',
-      data: responseData,
-    };
+    return responseData;
   }
 
   async update(

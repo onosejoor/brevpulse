@@ -6,20 +6,17 @@ import { AuthModule } from './modules/auth/auth.module';
 import { BullModule } from '@nestjs/bullmq';
 import { forRootFactory } from './common/factories/redis.factory';
 import { UsersModule } from './modules/users/users.module';
-import { ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { APP_GUARD } from '@nestjs/core';
+import { throttlerFactory } from './common/factories/throttler.factory';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
-    ThrottlerModule.forRoot({
-      throttlers: [
-        {
-          ttl: 60000 * 5,
-          limit: 2,
-        },
-      ],
+    ThrottlerModule.forRootAsync({
+      useFactory: throttlerFactory,
     }),
     BullModule.forRootAsync({
       useFactory: forRootFactory,
@@ -30,6 +27,12 @@ import { ThrottlerModule } from '@nestjs/throttler';
     }),
     AuthModule,
     UsersModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
+    },
   ],
 })
 export class AppModule {}
