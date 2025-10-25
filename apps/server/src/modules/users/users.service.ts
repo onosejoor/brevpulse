@@ -4,9 +4,10 @@ import { User, UserDocument } from 'src/mongodb/schemas/user.schema';
 import { Model } from 'mongoose';
 import { omitObjKeyVal } from 'src/utils/utils';
 import { RedisService } from '../redis/redis.service';
+import { UpdateUserDto } from '@/dtos/update-user.dto';
 
 @Injectable()
-export class UsersService {
+export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private redisService: RedisService,
@@ -43,12 +44,12 @@ export class UsersService {
     return responseData;
   }
 
-  async update(
-    id: string,
-    updateUserDto: Partial<Pick<User, 'avatar' | 'name'>>,
-  ) {
+  async update(id: string, updateUserDto: UpdateUserDto) {
     await this.userModel.updateOne({ _id: id }, updateUserDto);
 
-    return { status: 'success', message: 'User updated successfully' };
+    return {
+      status: 'success',
+      message: 'Profile update received, your new changes will reflect shortly',
+    };
   }
 }

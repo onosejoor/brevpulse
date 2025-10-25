@@ -16,7 +16,6 @@ export function forRootFactory() {
 
 export function registerQueueFatory(options?: Partial<RegisterQueueOptions>) {
   return {
-    ...(options?.name && { name: options.name }),
     connection: {
       url: process.env.REDIS_URL,
     },
@@ -27,5 +26,6 @@ export function registerQueueFatory(options?: Partial<RegisterQueueOptions>) {
       removeOnComplete: true,
       removeOnFail: false,
     },
+    ...options,
   };
 }

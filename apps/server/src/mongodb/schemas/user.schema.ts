@@ -79,5 +79,4 @@ UserSchema.pre('save', async function (next) {
   }
 });
 
-UserSchema.index({ email: 1 });
 UserSchema.index({ 'tokens.provider': 1 });

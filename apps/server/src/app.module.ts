@@ -5,7 +5,7 @@ import { mongooseConfigFactory } from './mongodb/connection.factory';
 import { AuthModule } from './modules/auth/auth.module';
 import { BullModule } from '@nestjs/bullmq';
 import { forRootFactory } from './common/factories/redis.factory';
-import { UsersModule } from './modules/users/users.module';
+import { UserModule } from './modules/users/users.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { throttlerFactory } from './common/factories/throttler.factory';
@@ -26,7 +26,7 @@ import { throttlerFactory } from './common/factories/throttler.factory';
       useFactory: mongooseConfigFactory,
     }),
     AuthModule,
-    UsersModule,
+    UserModule,
   ],
   providers: [
     {
