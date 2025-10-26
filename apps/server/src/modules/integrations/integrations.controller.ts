@@ -31,12 +31,4 @@ export class IntegrationsController {
   ) {
     return this.gmailConnectService.oauthCallback(code, state);
   }
-
-  @UseGuards(AuthGuard)
-  @Get('/digest/:provider')
-  @HttpCode(200)
-  getGmailData(@Req() req: UserRequest) {
-    const { user } = req;
-    return this.gmailConnectService.getGmailData(user.id);
-  }
 }

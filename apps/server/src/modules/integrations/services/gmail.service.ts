@@ -109,12 +109,12 @@ export class GmailConnectService {
 
     const results: GmailRes[] = [];
 
-    const tokens = await this.ensureFreshToken(userId, gmailToken);
-
     this.oauth2Client.setCredentials({
-      access_token: tokens.accessToken,
-      refresh_token: tokens.refreshToken,
+      access_token: gmailToken.accessToken,
+      refresh_token: gmailToken.refreshToken,
     });
+
+    await this.ensureFreshToken(userId, gmailToken);
 
     const gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
 
@@ -173,7 +173,10 @@ export class GmailConnectService {
   ): Promise<UserToken> {
     if (!token.expiryDate || new Date() < token.expiryDate) return token;
 
-    if (!token.refreshToken) throw new Error('No refresh token available');
+    if (!token.refreshToken)
+      throw new BadRequestException(
+        'Your Gmail connection needs to be reauthorized. Please reconnect Gmail.',
+      );
 
     try {
       const { credentials } = await this.oauth2Client.refreshAccessToken();
@@ -184,6 +187,11 @@ export class GmailConnectService {
         refreshToken: credentials.refresh_token || token.refreshToken,
         expiryDate: new Date(credentials.expiry_date!),
       };
+
+      this.oauth2Client.setCredentials({
+        access_token: updated.accessToken,
+        refresh_token: updated.refreshToken,
+      });
 
       await this.userTokenService.updateToken(userId, 'gmail', updated);
       return updated;
