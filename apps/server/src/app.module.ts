@@ -9,6 +9,7 @@ import { UserModule } from './modules/users/users.module';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD } from '@nestjs/core';
 import { throttlerFactory } from './common/factories/throttler.factory';
+import { IntegrationsModule } from './modules/integrations/integrations.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { throttlerFactory } from './common/factories/throttler.factory';
     }),
     AuthModule,
     UserModule,
+    IntegrationsModule,
   ],
   providers: [
     {

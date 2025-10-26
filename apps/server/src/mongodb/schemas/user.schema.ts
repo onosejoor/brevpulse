@@ -9,10 +9,11 @@ type UserPreferences = {
   filters?: { keywords?: string[] };
 };
 
-type UserToken = {
-  provider: 'google' | 'outlook' | 'slack' | 'github' | 'figma';
+export type UserToken = {
+  provider: 'gmail' | 'outlook' | 'slack' | 'github' | 'figma';
   accessToken: string;
-  refreshToken?: string | undefined;
+  refreshToken: string | undefined;
+  expiryDate: Date;
 };
 
 @Schema({ timestamps: true })
@@ -39,10 +40,11 @@ export class User {
         provider: {
           type: String,
           required: true,
-          enum: ['google', 'outlook', 'slack', 'github', 'figma'],
+          enum: ['gmail', 'outlook', 'slack', 'github', 'figma'],
         },
         accessToken: { type: String, required: true, select: false },
         refreshToken: { type: String, select: false },
+        expiryDate: { type: Date },
       },
     ],
     default: [],

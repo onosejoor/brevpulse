@@ -27,5 +27,6 @@ import { ImageWorker } from '@/workers/image.worker';
   ],
   controllers: [UserController],
   providers: [UserService, UserTokenService, ImageWorker],
+  exports: [UserTokenService],
 })
 export class UserModule {}

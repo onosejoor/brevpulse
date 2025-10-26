@@ -2,19 +2,16 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { ApiResDTO } from 'src/dtos/api.response.dto';
-import { User, UserDocument } from 'src/mongodb/schemas/user.schema';
-
-type TokenInput = {
-  provider: 'google' | 'outlook' | 'slack' | 'github' | 'figma';
-  accessToken: string;
-  refreshToken?: string;
-};
+import { User, UserDocument, UserToken } from 'src/mongodb/schemas/user.schema';
 
 @Injectable()
 export class UserTokenService {
   constructor(@InjectModel(User.name) private userModel: Model<UserDocument>) {}
 
-  async addToken(userId: string, token: TokenInput): Promise<ApiResDTO> {
+  async addToken(
+    userId: string,
+    token: Partial<UserToken>,
+  ): Promise<ApiResDTO> {
     const user = await this.userModel.findById(userId).select('+tokens');
     if (!user) throw new NotFoundException('User not found');
 
@@ -22,8 +19,17 @@ export class UserTokenService {
     if (exists) {
       return { status: 'error', message: 'Provider already connected' };
     }
+    // Normalize expiryDate if provided (allow string/number inputs)
+    const pushToken: Partial<UserToken> = {
+      provider: token.provider as UserToken['provider'],
+      accessToken: token.accessToken || '',
+      refreshToken: token.refreshToken,
+      expiryDate: token.expiryDate
+        ? new Date(token.expiryDate as any)
+        : undefined,
+    };
 
-    user.tokens.push(token);
+    user.tokens.push(pushToken as UserToken);
     await user.save();
 
     return { status: 'success', message: 'Token added' };
@@ -31,7 +37,7 @@ export class UserTokenService {
 
   async removeToken(
     userId: string,
-    provider: TokenInput['provider'],
+    provider: UserToken['provider'],
   ): Promise<ApiResDTO> {
     const res = await this.userModel.updateOne(
       { _id: userId },
@@ -48,8 +54,8 @@ export class UserTokenService {
 
   async updateToken(
     userId: string,
-    provider: TokenInput['provider'],
-    payload: Partial<Pick<TokenInput, 'accessToken' | 'refreshToken'>>,
+    provider: UserToken['provider'],
+    payload: Partial<Omit<UserToken, 'provider'>>,
   ): Promise<ApiResDTO> {
     const update = {
       ...(payload.accessToken && {
@@ -57,6 +63,9 @@ export class UserTokenService {
       }),
       ...(payload.refreshToken && {
         'tokens.$.refreshToken': payload.refreshToken,
+      }),
+      ...(payload.expiryDate && {
+        'tokens.$.expiryDate': payload.expiryDate,
       }),
     };
 
