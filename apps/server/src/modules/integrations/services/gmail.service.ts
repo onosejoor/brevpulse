@@ -121,7 +121,7 @@ export class GmailConnectService {
     const { data } = await gmail.users.messages.list({
       userId: 'me',
       q: 'is:unread newer_than:2d',
-      maxResults: 10,
+      // maxResults: 10,
     });
 
     if (!data.messages || !data.messages.length) {
