@@ -13,4 +13,11 @@ export class DigestController {
     const { user } = req;
     return this.digestService.generateDigest(user.id);
   }
+
+  @Get('with-ai')
+  @HttpCode(200)
+  getDigestWithAi(@Req() req: UserRequest) {
+    const { user } = req;
+    return this.digestService.generateWithGemini(user);
+  }
 }

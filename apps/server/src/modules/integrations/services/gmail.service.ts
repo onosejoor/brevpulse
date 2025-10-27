@@ -95,7 +95,7 @@ export class GmailConnectService {
     }
   }
 
-  async getGmailData(userId: string): Promise<ApiResDTO> {
+  async getGmailData(userId: string): Promise<ApiResDTO<GmailRes[]>> {
     const user = await this.userModel
       .findById(userId)
       .select('+tokens +tokens.accessToken +tokens.refreshToken');
@@ -120,8 +120,8 @@ export class GmailConnectService {
 
     const { data } = await gmail.users.messages.list({
       userId: 'me',
-      q: 'is:unread newer_than:2d',
-      // maxResults: 10,
+      q: 'is:unread newer_than:1d',
+      maxResults: 100,
     });
 
     if (!data.messages || !data.messages.length) {
@@ -136,6 +136,7 @@ export class GmailConnectService {
         const msg = await gmail.users.messages.get({
           userId: 'me',
           id: m.id!,
+          metadataHeaders: ['From', 'Subject', 'Date'],
         });
         const headers = msg.data.payload?.headers || [];
 

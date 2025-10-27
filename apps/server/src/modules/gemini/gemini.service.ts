@@ -1,10 +1,12 @@
-// src/gemini/gemini.service.ts
 import {
   Injectable,
   BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import {
+  GoogleGenerativeAI,
+  GoogleGenerativeAIFetchError,
+} from '@google/generative-ai';
 import {
   DIGEST_GENERATION_SYSTEM_PROMPT,
   DIGEST_GENERATION_USER_PROMPT,
@@ -22,19 +24,26 @@ export class GeminiService {
   async generateDigest(input: GeminiInputs): Promise<any> {
     try {
       const model = this.genAI.getGenerativeModel({
-        model: 'gemini-2.5-flash',
-        generationConfig: { responseMimeType: 'application/json' },
+        model: 'gemini-2.0-flash-lite',
+        generationConfig: {
+          responseMimeType: 'application/json',
+          temperature: 0.3,
+        },
+        systemInstruction: {
+          role: 'user',
+          parts: [{ text: DIGEST_GENERATION_SYSTEM_PROMPT }],
+        },
       });
 
       const result = await model.generateContent({
         contents: [
           {
-            role: 'system',
-            parts: [{ text: DIGEST_GENERATION_SYSTEM_PROMPT }],
-          },
-          {
             role: 'user',
-            parts: [{ text: DIGEST_GENERATION_USER_PROMPT(input) }],
+            parts: [
+              {
+                text: `${DIGEST_GENERATION_USER_PROMPT(input)}`,
+              },
+            ],
           },
         ],
       });
@@ -65,5 +74,32 @@ export class GeminiService {
         'Failed to generate digest: ' + error.message,
       );
     }
+  }
+
+  async callGeminiWithRetry(input: GeminiInputs, maxRetries: number = 3) {
+    let attempts = 0;
+    while (attempts < maxRetries) {
+      try {
+        const response = await this.generateDigest(input);
+        return response;
+      } catch (error) {
+        if (
+          error instanceof GoogleGenerativeAIFetchError &&
+          error.status === 503
+        ) {
+          attempts++;
+          const delay = Math.pow(2, attempts) * 1000;
+          console.log(
+            `503 Error, retrying in ${delay}ms... (${attempts}/${maxRetries})`,
+          );
+          await new Promise((resolve) => setTimeout(resolve, delay));
+        } else {
+          throw error; // Rethrow non-503 errors
+        }
+      }
+    }
+    throw new Error(
+      `Failed after ${maxRetries} retries due to 503 Service Unavailable`,
+    );
   }
 }
