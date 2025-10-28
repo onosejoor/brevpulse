@@ -11,6 +11,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { throttlerFactory } from './common/factories/throttler.factory';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { DigestModule } from './modules/digest/digest.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { DigestModule } from './modules/digest/digest.module';
       imports: [ConfigModule],
       useFactory: mongooseConfigFactory,
     }),
+    ScheduleModule.forRoot(),
     AuthModule,
     UserModule,
     IntegrationsModule,

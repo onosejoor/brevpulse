@@ -12,6 +12,7 @@ import {
   DIGEST_GENERATION_USER_PROMPT,
 } from './gemini.prompts';
 import { GeminiInputs } from './types/gemini.type';
+import { DigestPayload } from '@repo/shared-types/globals';
 
 @Injectable()
 export class GeminiService {
@@ -21,10 +22,10 @@ export class GeminiService {
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
   }
 
-  async generateDigest(input: GeminiInputs): Promise<any> {
+  async generateDigest(input: GeminiInputs): Promise<DigestPayload> {
     try {
       const model = this.genAI.getGenerativeModel({
-        model: 'gemini-2.0-flash-lite',
+        model: 'gemini-2.5-flash-lite',
         generationConfig: {
           responseMimeType: 'application/json',
           temperature: 0.3,
