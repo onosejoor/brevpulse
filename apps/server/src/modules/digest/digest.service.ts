@@ -15,6 +15,7 @@ import {
 } from '@/mongodb/schemas/digest.schema';
 import { CryptoService } from '@/common/services/crypto.service';
 import { RedisService } from '../redis/redis.service';
+import { getBufferKey } from '@/utils/utils';
 
 @Injectable()
 export class DigestService {
@@ -43,15 +44,18 @@ export class DigestService {
         .find({ userId: userId })
         .sort({ createdAt: -1 })
         .skip((page - 1) * limit)
-        .limit(limit),
+        .limit(limit)
+        .lean(),
       this.cryptoService.getUserKey(userId),
     ]);
 
-    const decodedData = this.cryptoService.decryptMany(digests, encryptionKey);
+    const decodedData = this.cryptoService.decryptMany(
+      digests,
+      getBufferKey(encryptionKey),
+    );
 
     const res = {
       status: 'success',
-      digest: digests,
       data: decodedData,
     };
 

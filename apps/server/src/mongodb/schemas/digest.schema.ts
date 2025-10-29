@@ -1,6 +1,5 @@
 // src/mongodb/schemas/digest-history.schema.ts
-import { Prop, raw, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { type DigestSummary } from '@repo/shared-types/globals';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
 export type DigestHistoryDocument = DigestHistory & Document;
@@ -31,16 +30,6 @@ export class DigestHistory {
 
   @Prop({ default: false })
   opened?: boolean;
-
-  @Prop(
-    raw({
-      totalItems: { type: Number },
-      bySource: { type: Object },
-      byPriority: { type: Object },
-      integrations: { type: [String] },
-    }),
-  )
-  summary: DigestSummary;
 }
 
 export const DigestHistorySchema = SchemaFactory.createForClass(DigestHistory);

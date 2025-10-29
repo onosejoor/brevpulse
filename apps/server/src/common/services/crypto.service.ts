@@ -1,5 +1,6 @@
 import { DigestHistory } from '@/mongodb/schemas/digest.schema';
 import { User, UserDocument } from '@/mongodb/schemas/user.schema';
+import { getBufferKey } from '@/utils/utils';
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { createCipheriv, createDecipheriv, randomBytes } from 'crypto';
@@ -69,21 +70,33 @@ export class CryptoService {
     return JSON.parse(json) as T;
   }
 
-  decryptMany<T>(payloads: DigestHistory[], key: Buffer): T[] {
+  decryptMany<T>(
+    payloads: DigestHistory[],
+    key: Buffer,
+  ): (Omit<DigestHistory, 'content'> & { content: T })[] {
     if (!(key instanceof Buffer) || key.length !== 32) {
       throw new Error('Invalid AES key: must be a 32-byte Buffer');
     }
 
     return payloads.map((p) => {
-      const decipher = createDecipheriv(this.algorithm, key, p.iv);
-      decipher.setAuthTag(p.authTag);
+      const decipher = createDecipheriv(
+        this.algorithm,
+        getBufferKey(key),
+        getBufferKey(p.iv),
+      );
+      decipher.setAuthTag(getBufferKey(p.authTag));
 
       const json = Buffer.concat([
-        decipher.update(p.content),
+        decipher.update(getBufferKey(p.content)),
         decipher.final(),
       ]).toString('utf8');
 
-      return JSON.parse(json) as T;
+      const decrypted = JSON.parse(json) as T;
+
+      return {
+        ...p,
+        content: decrypted,
+      };
     });
   }
 }

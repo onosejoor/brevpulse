@@ -18,3 +18,9 @@ export const throttlerOptions = {
     limit: 100,
   },
 };
+
+export const getBufferKey = (key: any) => {
+  const encKey = key instanceof Buffer ? key : key.buffer;
+
+  return Buffer.from(encKey);
+};
