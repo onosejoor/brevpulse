@@ -8,6 +8,11 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { User, UserSchema } from '@/mongodb/schemas/user.schema';
 import { BullModule } from '@nestjs/bullmq';
 import { registerQueueFatory } from '@/common/factories/redis.factory';
+import { CryptoService } from '@/common/services/crypto.service';
+import {
+  DigestHistory,
+  DigestHistorySchema,
+} from '@/mongodb/schemas/digest.schema';
 
 @Module({
   imports: [
@@ -18,10 +23,13 @@ import { registerQueueFatory } from '@/common/factories/redis.factory';
       name: 'email-queue',
       useFactory: registerQueueFatory,
     }),
-    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+    MongooseModule.forFeature([
+      { name: User.name, schema: UserSchema },
+      { name: DigestHistory.name, schema: DigestHistorySchema },
+    ]),
   ],
   controllers: [DigestController],
-  providers: [DigestService],
+  providers: [DigestService, CryptoService],
   exports: [DigestService],
 })
 export class DigestModule {}

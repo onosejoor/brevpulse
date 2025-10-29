@@ -55,7 +55,7 @@ export class MailService {
           to,
           subject,
           html: template,
-          from: 'BrevPulse',
+          from: 'Brevpulse',
         },
         {
           headers: {

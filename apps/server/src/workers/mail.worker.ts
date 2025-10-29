@@ -58,13 +58,19 @@ export class MailWorker extends WorkerHost {
 
             const html = generateEmailHTML(generated);
 
-            await this.mailService.sendMail(
+            const { success, message } = await this.mailService.sendMail(
               user.email,
-              'Your BrevPulse digest',
+              'Your Daily Brevpulse Digest',
               html,
             );
 
-            console.log(`Digest sent to ${user.email} (user ${user.id})`);
+            if (success) {
+              console.log(`Digest sent to ${user.email} (user ${user.id})`);
+
+              await this.digestService.saveHistory(generated, user.id);
+            } else {
+              console.log(`Error sending digest mail: ${message}`);
+            }
           }
 
           break;
@@ -73,7 +79,7 @@ export class MailWorker extends WorkerHost {
           console.warn('Job type is unknown');
           break;
       }
-      console.log(`Job Time ${Date.now() - now}ms`);
+      console.log(`Job response Time ${Date.now() - now}ms`);
     } catch (error) {
       console.log('Error processing job: ', error);
     }

@@ -116,7 +116,10 @@ export class AuthService {
       throw new NotFoundException('Invalid Credentials');
     }
 
-    const isCorrectpassword = await argon2.verify(user.password, dto.password);
+    const isCorrectpassword = await argon2.verify(
+      user.password ?? '',
+      dto.password,
+    );
     if (!isCorrectpassword) {
       throw new NotFoundException('Invalid Credentials');
     }

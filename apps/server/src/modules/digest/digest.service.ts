@@ -1,5 +1,4 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { RedisService } from '../redis/redis.service';
 import { GmailConnectService } from '../integrations/services/gmail.service';
 import { GeminiService } from '../gemini/gemini.service';
 import { Model } from 'mongoose';
@@ -8,21 +7,59 @@ import { GeminiInputs } from '../gemini/types/gemini.type';
 import { InjectModel } from '@nestjs/mongoose';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
-import { Cron } from '@nestjs/schedule';
 import { DigestPayload } from '@repo/shared-types/globals';
 import { ApiResDTO } from '@/dtos/api.response.dto';
+import {
+  DigestHistory,
+  DigestHistoryDocument,
+} from '@/mongodb/schemas/digest.schema';
+import { CryptoService } from '@/common/services/crypto.service';
+import { RedisService } from '../redis/redis.service';
 
 @Injectable()
 export class DigestService {
   constructor(
-    private redisService: RedisService,
     private gmailService: GmailConnectService,
     private geminiService: GeminiService,
+    private cryptoService: CryptoService,
+    private redisService: RedisService,
     @InjectModel(User.name) private userModel: Model<UserDocument>,
-    @InjectQueue('email-queue') private readonly emailQueue: Queue,
+    @InjectModel(DigestHistory.name)
+    private digestModel: Model<DigestHistoryDocument>,
+    @InjectQueue('email-queue')
+    private readonly emailQueue: Queue,
   ) {}
 
-  @Cron('0 6 * * *')
+  async generateDigest(userId: string, limit: number = 10, page: number = 1) {
+    const cacheKey = `user:${userId}:digests:all:page:${page}:limit:${limit}`;
+
+    const cachedData = await this.redisService.getParsedData(cacheKey);
+    if (cachedData) {
+      return cachedData;
+    }
+
+    const [digests, encryptionKey] = await Promise.all([
+      this.digestModel
+        .find({ userId: userId })
+        .sort({ createdAt: -1 })
+        .skip((page - 1) * limit)
+        .limit(limit),
+      this.cryptoService.getUserKey(userId),
+    ]);
+
+    const decodedData = this.cryptoService.decryptMany(digests, encryptionKey);
+
+    const res = {
+      status: 'success',
+      digest: digests,
+      data: decodedData,
+    };
+
+    await this.redisService.set(cacheKey, JSON.stringify(res));
+
+    return res;
+  }
+
   async handleDailyDigestCron(): Promise<ApiResDTO> {
     try {
       const users = await this.userModel
@@ -58,30 +95,28 @@ export class DigestService {
     }
   }
 
-  async generateDigest(userId: string) {
-    const cacheKey = `user:${userId}:digests:all`;
+  async saveHistory(
+    payload: DigestPayload,
+    userId: string,
+  ): Promise<ApiResDTO> {
+    const { encrypted, iv, authTag } = await this.cryptoService.encrypt(
+      payload,
+      userId,
+    );
 
-    const cachedData = await this.redisService.getParsedData(cacheKey);
-    if (cachedData) {
-      return cachedData;
-    }
+    await this.digestModel.create({
+      userId,
+      content: encrypted,
+      iv,
+      authTag,
+      deliveryChannels: ['email'],
+      summary: payload.summary,
+    });
 
-    const [gmail] = await Promise.allSettled([
-      this.gmailService.getGmailData(userId),
-    ]);
-
-    const integrations = [gmail]
-      .filter((res) => res.status === 'fulfilled')
-      .map((res) => res.value.data);
-
-    const res = {
+    return {
       status: 'success',
-      data: integrations.flat(),
+      message: 'Digest successfully saved',
     };
-
-    await this.redisService.set(cacheKey, JSON.stringify(res));
-
-    return res;
   }
 
   async generateWithGemini(user: AuthTokenPayload): Promise<DigestPayload> {
