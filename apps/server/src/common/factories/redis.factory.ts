@@ -1,9 +1,11 @@
 import { RegisterQueueOptions } from '@nestjs/bullmq';
+import appConfig from '../config/app.config';
 
 export function forRootFactory() {
+  const config = appConfig();
   return {
     connection: {
-      url: process.env.REDIS_URL,
+      url: config.REDIS_URL,
     },
     defaultJobOptions: {
       attempts: 10,
@@ -15,9 +17,10 @@ export function forRootFactory() {
 }
 
 export function registerQueueFatory(options?: Partial<RegisterQueueOptions>) {
+  const config = appConfig();
   return {
     connection: {
-      url: process.env.REDIS_URL,
+      url: config.REDIS_URL,
     },
 
     defaultJobOptions: {

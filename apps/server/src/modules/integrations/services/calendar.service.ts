@@ -10,19 +10,19 @@ import { RedisService } from '@/modules/redis/redis.service';
 import appConfig from '@/common/config/app.config';
 import { TOKEN_STRING } from '@/utils/utils';
 
-type GmailRes = {
+type CalendarRes = {
   account: UserToken['provider'];
-  messages: {
+  events: {
     id: string | null | undefined;
-    subject: string;
-    from: string;
-    date: string;
-    snippet: string | null | undefined;
+    summary: string | null | undefined;
+    description: string | null | undefined;
+    start: string | null | undefined;
+    end: string | null | undefined;
   }[];
 };
 
 @Injectable()
-export class GmailConnectService {
+export class CalendarConnectService {
   private oauth2Client: OAuth2Client;
 
   constructor(
@@ -34,14 +34,14 @@ export class GmailConnectService {
     this.oauth2Client = new OAuth2Client({
       clientId: config.G_CLIENT_ID,
       clientSecret: config.G_CLIENT_SECRET,
-      redirectUri: config.GMAIL_REDIRECT_URI,
+      redirectUri: config.CALENDAR_REDIRECT_URI,
     });
   }
 
-  getGmailOauthUrl(userId: string) {
+  getCalenderOauthUrl(userId: string) {
     return this.oauth2Client.generateAuthUrl({
       access_type: 'offline',
-      scope: ['https://www.googleapis.com/auth/gmail.readonly'],
+      scope: ['https://www.googleapis.com/auth/calendar.readonly'],
       prompt: 'consent',
       state: userId,
     });
@@ -58,10 +58,13 @@ export class GmailConnectService {
       const user = await this.userModel
         .findById(userId)
         .select('tokens')
-        .exec();
-      if (!user) throw new BadRequestException('User not found');
+        .lean();
 
-      const existingToken = user.tokens.find((t) => t.provider === 'gmail');
+      if (!user) {
+        throw new BadRequestException('User not found!');
+      }
+
+      const existingToken = user.tokens.find((t) => t.provider === 'calendar');
       const expiryDate = tokens.expiry_date
         ? new Date(tokens.expiry_date)
         : null;
@@ -74,7 +77,7 @@ export class GmailConnectService {
         } as Partial<UserToken>);
       } else {
         await this.userTokenService.addToken(userId, {
-          provider: 'gmail',
+          provider: 'calendar',
           accessToken: tokens.access_token!,
           refreshToken: tokens.refresh_token,
           expiryDate: expiryDate,
@@ -83,87 +86,79 @@ export class GmailConnectService {
 
       await this.redisService.delete(`user:${userId}`);
 
-      return { status: 'success', message: 'Gmail connected' };
+      return { status: 'success', message: 'Calendar connected' };
     } catch (error) {
       console.error('OAuth Callback Error:', error);
       throw new BadRequestException(
-        'Failed to connect Gmail: ' + error.message,
+        'Failed to connect Calendar: ' + error.message,
       );
     }
   }
 
-  async getGmailData(userId: string): Promise<ApiResDTO<GmailRes>> {
+  async getCalendarData(userId: string): Promise<ApiResDTO<CalendarRes>> {
     const user = await this.userModel.findById(userId).select(TOKEN_STRING);
 
     if (!user) {
       return {
         status: 'success',
-        data: { account: 'gmail', messages: [] },
+        data: { account: 'calendar', events: [] },
         message: 'User not found',
       };
     }
 
-    const gmailToken = user.tokens.find((t) => t.provider === 'gmail');
-    if (!gmailToken || gmailToken.isDisabled) {
+    const calendarToken = user.tokens.find((t) => t.provider === 'calendar');
+
+    if (!calendarToken || calendarToken.isDisabled) {
       return {
         status: 'success',
-        data: { account: 'gmail', messages: [] },
-        message: 'Gmail account disabled or not connected',
+        data: { account: 'calendar', events: [] },
+        message: 'Calendar account disabled or not connected',
       };
     }
 
     // Set credentials
     this.oauth2Client.setCredentials({
-      access_token: gmailToken.accessToken,
-      refresh_token: gmailToken.refreshToken,
+      access_token: calendarToken.accessToken,
+      refresh_token: calendarToken.refreshToken,
     });
 
     // Refresh if needed
     await this.userTokenService.ensureFreshToken(
       userId,
-      gmailToken,
+      calendarToken,
       this.oauth2Client,
     );
 
-    const gmail = google.gmail({ version: 'v1', auth: this.oauth2Client });
-
-    const { data } = await gmail.users.messages.list({
-      userId: 'me',
-      q: 'is:unread newer_than:1d',
-      maxResults: 100,
+    const calendar = google.calendar({
+      version: 'v3',
+      auth: this.oauth2Client,
     });
 
-    const mailMessages = data.messages || [];
+    const now = new Date().toISOString();
 
-    const messages = await Promise.all(
-      mailMessages.map(async (m) => {
-        const msg = await gmail.users.messages.get({
-          userId: 'me',
-          id: m.id!,
-          format: 'metadata',
-          metadataHeaders: ['From', 'Subject', 'Date'],
-        });
+    const res = await calendar.events.list({
+      calendarId: 'primary',
+      timeMin: now,
+      maxResults: 50,
+      singleEvents: true,
+      orderBy: 'startTime',
+    });
 
-        const headers = msg.data.payload?.headers || [];
-        const getHeader = (name: string) =>
-          headers.find((h) => h.name === name)?.value;
+    const events = res.data.items || [];
 
-        return {
-          id: m.id!,
-          threadId: msg.data.threadId,
-          subject: getHeader('Subject') || '(No Subject)',
-          from: getHeader('From') || '(Unknown)',
-          date: getHeader('Date') || new Date().toISOString(),
-          snippet: msg.data.snippet || '',
-        };
-      }),
-    );
+    const structuredEvents = events.map((event) => ({
+      id: event.id,
+      summary: event.summary || '(No Summary)',
+      description: event.description || '(No Description)',
+      start: event.start?.dateTime || event.start?.date,
+      end: event.end?.dateTime || event.end?.date,
+    }));
 
     return {
       status: 'success',
       data: {
-        account: 'gmail',
-        messages,
+        account: 'calendar',
+        events: structuredEvents,
       },
     };
   }

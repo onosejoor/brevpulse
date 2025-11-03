@@ -1,4 +1,4 @@
-import { DigestHistory } from '@/mongodb/schemas/digest.schema';
+import { Digest } from '@/mongodb/schemas/digest.schema';
 import { User, UserDocument } from '@/mongodb/schemas/user.schema';
 import { getBufferKey } from '@/utils/utils';
 import { Injectable } from '@nestjs/common';
@@ -71,9 +71,9 @@ export class CryptoService {
   }
 
   decryptMany<T>(
-    payloads: DigestHistory[],
+    payloads: Digest[],
     key: Buffer,
-  ): (Omit<DigestHistory, 'content'> & { content: T })[] {
+  ): (Omit<Digest, 'content'> & { content: T })[] {
     if (!(key instanceof Buffer) || key.length !== 32) {
       throw new Error('Invalid AES key: must be a 32-byte Buffer');
     }

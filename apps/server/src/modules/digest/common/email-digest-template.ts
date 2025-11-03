@@ -68,7 +68,7 @@ export function generateEmailHTML(payload: DigestPayload): string {
           ${
             item.actions && item.actions.length > 0
               ? `<td style="text-align: right; vertical-align: middle; padding-left: 12px;">
-            ${item.actions.map((action) => `<a href="${action.url}" class="action-btn" style="margin-left: 12px;">View →</a>`).join('')}
+            ${item.actions.map((action) => `<a href="${action.url}" class="action-btn" style="margin-left: 12px;">${action.label || 'View'}</a>`).join('')}
           </td>`
               : ''
           }

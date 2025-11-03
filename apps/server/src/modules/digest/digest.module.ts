@@ -9,10 +9,7 @@ import { User, UserSchema } from '@/mongodb/schemas/user.schema';
 import { BullModule } from '@nestjs/bullmq';
 import { registerQueueFatory } from '@/common/factories/redis.factory';
 import { CryptoService } from '@/common/services/crypto.service';
-import {
-  DigestHistory,
-  DigestHistorySchema,
-} from '@/mongodb/schemas/digest.schema';
+import { Digest, DigestSchema } from '@/mongodb/schemas/digest.schema';
 
 @Module({
   imports: [
@@ -25,7 +22,7 @@ import {
     }),
     MongooseModule.forFeature([
       { name: User.name, schema: UserSchema },
-      { name: DigestHistory.name, schema: DigestHistorySchema },
+      { name: Digest.name, schema: DigestSchema },
     ]),
   ],
   controllers: [DigestController],

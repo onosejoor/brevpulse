@@ -23,6 +23,7 @@ import { GoogleAuthService } from './google.service';
 import { jwtConstants } from '@/utils/jwt-constants';
 import { Throttle } from '@nestjs/throttler';
 import { throttlerOptions } from '@/utils/utils';
+import appConfig from '@/common/config/app.config';
 
 @Controller('auth')
 export class AuthController {
@@ -52,7 +53,7 @@ export class AuthController {
     );
 
     const jwtTokens = jwtConstants();
-    const isProd = process.env.NODE_ENV === 'production';
+    const isProd = appConfig().NODE_ENV === 'production';
 
     res.cookie('bp_atoken', accessToken, {
       httpOnly: true,

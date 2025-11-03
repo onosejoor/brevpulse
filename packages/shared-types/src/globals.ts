@@ -9,6 +9,7 @@ export type ActionType = "primary" | "secondary";
 export interface DigestAction {
   url: string;
   type?: ActionType;
+  label?: string;
 }
 
 export interface DigestItemMetadata {

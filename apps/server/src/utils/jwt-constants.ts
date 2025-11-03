@@ -1,3 +1,5 @@
+import appConfig from '@/common/config/app.config';
+
 export type jwtConstantstype = {
   refresh: {
     secret: string | undefined;
@@ -18,23 +20,26 @@ export type jwtConstantstype = {
   };
 };
 
-export const jwtConstants = () => ({
-  refresh: {
-    secret: process.env.REFRESH_TOKEN_SECRET,
-    // 14 days
-    cookieExpiresMs: 14 * 24 * 60 * 60 * 1000,
-    jwtExpiresSeconds: 14 * 24 * 60 * 60,
-  },
-  email: {
-    secret: process.env.EMAIL_SECRET,
-    // 1 day
-    cookieExpiresMs: 24 * 60 * 60 * 1000,
-    jwtExpiresSeconds: 24 * 60 * 60,
-  },
-  access: {
-    secret: process.env.ACCESS_TOKEN_SECRET,
-    // 15 minutes
-    cookieExpiresMs: 30 * 60 * 1000,
-    jwtExpiresSeconds: 30 * 60,
-  },
-});
+export const jwtConstants = () => {
+  const config = appConfig();
+  return {
+    refresh: {
+      secret: config.REFRESH_TOKEN_SECRET,
+      // 14 days
+      cookieExpiresMs: 14 * 24 * 60 * 60 * 1000,
+      jwtExpiresSeconds: 14 * 24 * 60 * 60,
+    },
+    email: {
+      secret: config.EMAIL_SECRET,
+      // 1 day
+      cookieExpiresMs: 24 * 60 * 60 * 1000,
+      jwtExpiresSeconds: 24 * 60 * 60,
+    },
+    access: {
+      secret: config.ACCESS_TOKEN_SECRET,
+      // 15 minutes
+      cookieExpiresMs: 30 * 60 * 1000,
+      jwtExpiresSeconds: 30 * 60,
+    },
+  };
+};

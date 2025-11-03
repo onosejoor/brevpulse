@@ -2,10 +2,10 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-export type DigestHistoryDocument = DigestHistory & Document;
+export type DigestDocument = Digest & Document;
 
 @Schema({ timestamps: true })
-export class DigestHistory {
+export class Digest {
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   userId: Types.ObjectId;
 
@@ -32,8 +32,8 @@ export class DigestHistory {
   opened?: boolean;
 }
 
-export const DigestHistorySchema = SchemaFactory.createForClass(DigestHistory);
+export const DigestSchema = SchemaFactory.createForClass(Digest);
 
-DigestHistorySchema.index({ userId: 1, sentAt: -1 });
-DigestHistorySchema.index({ deliveryChannels: 1 });
-DigestHistorySchema.index({ opened: 1 });
+DigestSchema.index({ userId: 1, sentAt: -1 });
+DigestSchema.index({ deliveryChannels: 1 });
+DigestSchema.index({ opened: 1 });

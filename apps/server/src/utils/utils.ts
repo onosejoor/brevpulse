@@ -24,3 +24,6 @@ export const getBufferKey = (key: any) => {
 
   return Buffer.from(encKey);
 };
+
+export const TOKEN_STRING =
+  '+tokens.accessToken +tokens.refreshToken +tokens.expiryDate +tokens.isDisabled +tokens._id';

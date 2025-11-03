@@ -12,11 +12,13 @@ import { throttlerFactory } from './common/factories/throttler.factory';
 import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { DigestModule } from './modules/digest/digest.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import appConfig from './common/config/app.config';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
+      load: [appConfig],
     }),
     ThrottlerModule.forRootAsync({
       useFactory: throttlerFactory,

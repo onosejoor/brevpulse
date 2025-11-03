@@ -16,6 +16,7 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { type Response } from 'express';
 import { JwtCustomService } from '../jwt/jwt.service';
+import appConfig from '@/common/config/app.config';
 
 class TokenRes {
   refreshToken: string;
@@ -145,7 +146,7 @@ export class AuthService {
   }
 
   sendCookies(res: Response, data: TokenRes) {
-    const isProd = process.env.NODE_ENV === 'production';
+    const isProd = appConfig().NODE_ENV === 'production';
 
     res.cookie('bp_rtoken', data.refreshToken, {
       httpOnly: true,

@@ -6,6 +6,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { User, UserSchema } from '@/mongodb/schemas/user.schema';
 import { RedisModule } from '../redis/redis.module';
 import { CustomJwtModule } from '@/modules/jwt/jwt.module';
+import { CalendarConnectService } from './services/calendar.service';
 
 @Module({
   imports: [
@@ -14,8 +15,8 @@ import { CustomJwtModule } from '@/modules/jwt/jwt.module';
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     RedisModule,
   ],
-  providers: [GmailConnectService],
+  providers: [GmailConnectService, CalendarConnectService],
   controllers: [IntegrationsController],
-  exports: [GmailConnectService],
+  exports: [GmailConnectService, CalendarConnectService],
 })
 export class IntegrationsModule {}

@@ -67,7 +67,7 @@ export class MailWorker extends WorkerHost {
             if (success) {
               console.log(`Digest sent to ${user.email} (user ${user.id})`);
 
-              await this.digestService.saveHistory(generated, user.id);
+              await this.digestService.saveDigest(generated, user.id);
             } else {
               console.log(`Error sending digest mail: ${message}`);
             }

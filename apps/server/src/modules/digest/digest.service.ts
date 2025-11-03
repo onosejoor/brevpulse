@@ -9,24 +9,24 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { DigestPayload } from '@repo/shared-types/globals';
 import { ApiResDTO } from '@/dtos/api.response.dto';
-import {
-  DigestHistory,
-  DigestHistoryDocument,
-} from '@/mongodb/schemas/digest.schema';
+import { Digest, DigestDocument } from '@/mongodb/schemas/digest.schema';
 import { CryptoService } from '@/common/services/crypto.service';
 import { RedisService } from '../redis/redis.service';
 import { getBufferKey } from '@/utils/utils';
+import { CalendarConnectService } from '../integrations/services/calendar.service';
 
 @Injectable()
 export class DigestService {
   constructor(
     private gmailService: GmailConnectService,
+    private calendarService: CalendarConnectService,
     private geminiService: GeminiService,
     private cryptoService: CryptoService,
     private redisService: RedisService,
+
     @InjectModel(User.name) private userModel: Model<UserDocument>,
-    @InjectModel(DigestHistory.name)
-    private digestModel: Model<DigestHistoryDocument>,
+    @InjectModel(Digest.name)
+    private digestModel: Model<DigestDocument>,
     @InjectQueue('email-queue')
     private readonly emailQueue: Queue,
   ) {}
@@ -77,12 +77,7 @@ export class DigestService {
             this.emailQueue.add('send-digest', {
               type: 'send-digest',
               data: {
-                user: {
-                  id: u._id,
-                  email: u.email,
-                  email_verified: u.email_verified,
-                  subscription: u.subscription,
-                },
+                user: { ...u, id: u._id },
               },
             }),
           ),
@@ -99,10 +94,7 @@ export class DigestService {
     }
   }
 
-  async saveHistory(
-    payload: DigestPayload,
-    userId: string,
-  ): Promise<ApiResDTO> {
+  async saveDigest(payload: DigestPayload, userId: string): Promise<ApiResDTO> {
     const { encrypted, iv, authTag } = await this.cryptoService.encrypt(
       payload,
       userId,
@@ -124,14 +116,17 @@ export class DigestService {
   }
 
   async generateWithGemini(user: AuthTokenPayload): Promise<DigestPayload> {
-    const gmailData = await this.gmailService.getGmailData(user.id);
+    const digests = await Promise.allSettled([
+      this.gmailService.getGmailData(user.id),
+      this.calendarService.getCalendarData(user.id),
+    ]);
 
-    if (gmailData.status !== 'success') {
-      throw new InternalServerErrorException(gmailData.message);
-    }
+    const integrations = digests
+      .filter((res) => res.status === 'fulfilled')
+      .map((res) => res.value.data);
 
     const input: GeminiInputs = {
-      rawData: gmailData.data,
+      rawData: integrations.flat(),
       period: 'daily',
       plan: user.subscription,
     };

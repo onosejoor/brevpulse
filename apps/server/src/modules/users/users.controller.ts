@@ -18,6 +18,8 @@ import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { fileInterceptorOptions } from './common/interceptor/file-interceptor.interceptor';
 import { type UpdateUserDto } from '@/dtos/update-user.dto';
+import { UserTokenService } from './common/user-token.service';
+import { UserToken } from '@/mongodb/schemas/user.schema';
 
 @Controller('user')
 @UseGuards(AuthGuard)
@@ -25,6 +27,7 @@ import { type UpdateUserDto } from '@/dtos/update-user.dto';
 export class UserController {
   constructor(
     private readonly userService: UserService,
+    private readonly userTokenService: UserTokenService,
     @InjectQueue('image-queue') private readonly imageQueue: Queue,
   ) {}
 
@@ -55,5 +58,26 @@ export class UserController {
     }
 
     return this.userService.update(user.id, updateUserDto);
+  }
+
+  @Patch('/tokens/:tokenId')
+  @HttpCode(200)
+  updateToken(
+    @Req() req: UserRequest,
+    @Body() updateTokenDto: Partial<Omit<UserToken, 'provider'>>,
+  ) {
+    const { user } = req;
+    const { tokenId } = req.params;
+
+    return this.userTokenService.updateToken(user.id, tokenId, updateTokenDto);
+  }
+
+  @Patch('/tokens/:tokenId')
+  @HttpCode(200)
+  deletToken(@Req() req: UserRequest) {
+    const { user } = req;
+    const { tokenId } = req.params;
+
+    return this.userTokenService.removeToken(user.id, tokenId);
   }
 }

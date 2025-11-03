@@ -1,7 +1,8 @@
 import { Prop, Schema, SchemaFactory, raw } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import argon2 from 'argon2';
 import crypto from 'crypto';
+import { UserTokenClass } from './user_token.schema';
 
 export type UserDocument = User & Document;
 
@@ -12,10 +13,16 @@ type UserPreferences = {
 };
 
 export type UserToken = {
-  provider: 'gmail' | 'outlook' | 'slack' | 'github' | 'figma';
+  _id: Types.ObjectId;
+  provider: 'gmail' | 'outlook' | 'slack' | 'github' | 'figma' | 'calendar';
   accessToken: string;
   refreshToken?: string;
   expiryDate?: Date;
+  /**
+   * If true the provider token is disabled for notifications (won't be used to send digests/notifications)
+   * Allows users to temporarily mute a provider without deleting the token.
+   */
+  isDisabled?: boolean;
 };
 @Schema({ timestamps: true })
 export class User {
@@ -37,18 +44,7 @@ export class User {
   @Prop({ required: false, select: false })
   password?: string;
   @Prop({
-    type: [
-      raw({
-        provider: {
-          type: String,
-          required: true,
-          enum: ['gmail', 'outlook', 'slack', 'github', 'figma'],
-        },
-        accessToken: { type: String, required: true, select: false },
-        refreshToken: { type: String, select: false },
-        expiryDate: { type: Date },
-      }),
-    ],
+    type: [UserTokenClass],
     default: [],
     validate: {
       validator: (tokens: any[]) => tokens.length <= 10,
