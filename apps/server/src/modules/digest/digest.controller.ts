@@ -16,7 +16,7 @@ export class DigestController {
       page: string;
     };
 
-    return this.digestService.generateDigest(
+    return this.digestService.getUserDigests(
       user.id,
       parseInt(limit),
       parseInt(page),

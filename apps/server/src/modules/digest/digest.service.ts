@@ -31,7 +31,7 @@ export class DigestService {
     private readonly emailQueue: Queue,
   ) {}
 
-  async generateDigest(userId: string, limit: number = 10, page: number = 1) {
+  async getUserDigests(userId: string, limit: number = 10, page: number = 1) {
     const cacheKey = `user:${userId}:digests:all:page:${page}:limit:${limit}`;
 
     const cachedData = await this.redisService.getParsedData(cacheKey);
@@ -108,6 +108,8 @@ export class DigestService {
       deliveryChannels: ['email'],
       summary: payload.summary,
     });
+
+    await this.redisService.deleteByPattern(`user:${userId}:digests:all`);
 
     return {
       status: 'success',

@@ -107,22 +107,19 @@ export class CalendarConnectService {
     }
 
     const calendarToken = user.tokens.find((t) => t.provider === 'calendar');
-
     if (!calendarToken || calendarToken.isDisabled) {
       return {
         status: 'success',
         data: { account: 'calendar', events: [] },
-        message: 'Calendar account disabled or not connected',
+        message: 'Calendar not connected',
       };
     }
 
-    // Set credentials
     this.oauth2Client.setCredentials({
       access_token: calendarToken.accessToken,
       refresh_token: calendarToken.refreshToken,
     });
 
-    // Refresh if needed
     await this.userTokenService.ensureFreshToken(
       userId,
       calendarToken,
@@ -134,11 +131,16 @@ export class CalendarConnectService {
       auth: this.oauth2Client,
     });
 
-    const now = new Date().toISOString();
+    const now = new Date();
+    const timeMin = now.toISOString();
+    const timeMax = new Date(
+      now.getTime() + 14 * 24 * 60 * 60 * 1000,
+    ).toISOString();
 
     const res = await calendar.events.list({
       calendarId: 'primary',
-      timeMin: now,
+      timeMin,
+      timeMax,
       maxResults: 50,
       singleEvents: true,
       orderBy: 'startTime',
@@ -146,12 +148,22 @@ export class CalendarConnectService {
 
     const events = res.data.items || [];
 
-    const structuredEvents = events.map((event) => ({
-      id: event.id,
-      summary: event.summary || '(No Summary)',
+    // FILTER: Only events starting in next 7 days
+    const upcomingEvents = events.filter((event) => {
+      const start = event.start?.dateTime || event.start?.date;
+      if (!start) return false;
+      const eventDate = new Date(start);
+      return eventDate >= now && eventDate <= new Date(timeMax);
+    });
+
+    const structuredEvents = upcomingEvents.map((event) => ({
+      id: event.id!,
+      summary: event.summary || '(No title)',
       description: event.description || '(No Description)',
+      location: event.location || '(No Location)',
       start: event.start?.dateTime || event.start?.date,
       end: event.end?.dateTime || event.end?.date,
+      recurrence: event.recurrence ? 'recurring' : 'one-time',
     }));
 
     return {

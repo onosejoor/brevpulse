@@ -3,10 +3,7 @@ import {
   BadRequestException,
   InternalServerErrorException,
 } from '@nestjs/common';
-import {
-  GoogleGenerativeAI,
-  GoogleGenerativeAIFetchError,
-} from '@google/generative-ai';
+import { GoogleGenerativeAI } from '@google/generative-ai';
 import {
   DIGEST_GENERATION_SYSTEM_PROMPT,
   DIGEST_GENERATION_USER_PROMPT,
@@ -75,32 +72,5 @@ export class GeminiService {
         'Failed to generate digest: ' + error.message,
       );
     }
-  }
-
-  async callGeminiWithRetry(input: GeminiInputs, maxRetries: number = 3) {
-    let attempts = 0;
-    while (attempts < maxRetries) {
-      try {
-        const response = await this.generateDigest(input);
-        return response;
-      } catch (error) {
-        if (
-          error instanceof GoogleGenerativeAIFetchError &&
-          error.status === 503
-        ) {
-          attempts++;
-          const delay = Math.pow(2, attempts) * 1000;
-          console.log(
-            `503 Error, retrying in ${delay}ms... (${attempts}/${maxRetries})`,
-          );
-          await new Promise((resolve) => setTimeout(resolve, delay));
-        } else {
-          throw error; // Rethrow non-503 errors
-        }
-      }
-    }
-    throw new Error(
-      `Failed after ${maxRetries} retries due to 503 Service Unavailable`,
-    );
   }
 }
