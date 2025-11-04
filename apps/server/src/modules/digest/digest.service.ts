@@ -14,6 +14,7 @@ import { CryptoService } from '@/common/services/crypto.service';
 import { RedisService } from '../redis/redis.service';
 import { getBufferKey } from '@/utils/utils';
 import { CalendarConnectService } from '../integrations/services/calendar.service';
+import { Cron } from '@nestjs/schedule';
 
 @Injectable()
 export class DigestService {
@@ -62,6 +63,24 @@ export class DigestService {
     await this.redisService.set(cacheKey, JSON.stringify(res));
 
     return res;
+  }
+
+  @Cron('0 8 * * *') // 8:00 AM UTC
+  async sendFreeDigests() {
+    const freeUsers = await this.userModel.find({ subscription: 'free' });
+
+    await Promise.all(
+      freeUsers.map((u) =>
+        Promise.resolve(
+          this.emailQueue.add('send-digest', {
+            type: 'send-digest',
+            data: {
+              user: { ...u, id: u._id },
+            },
+          }),
+        ),
+      ),
+    );
   }
 
   async handleDailyDigestCron(): Promise<ApiResDTO> {

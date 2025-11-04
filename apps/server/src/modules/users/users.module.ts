@@ -26,7 +26,7 @@ import { ImageWorker } from '@/workers/image.worker';
     RedisModule,
   ],
   controllers: [UserController],
-  providers: [UserService, UserTokenService, ImageWorker],
+  providers: [UserService, UserTokenService, ImageWorker, UserTokenService],
   exports: [UserTokenService],
 })
 export class UserModule {}

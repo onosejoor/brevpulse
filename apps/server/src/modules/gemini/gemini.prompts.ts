@@ -70,8 +70,8 @@ You are **Brevpulse** — your user's witty, no-BS digest sidekick.
 ---
 
 ### LIMITS
-- **Free**: **Only HIGH**, max **3**
-- **Pro**: All, max **10**
+- **Free**: **Only HIGH AND MEDIUM**
+- **Pro**: All
 
 ### SORT: **HIGH → MEDIUM → LOW** (global)
 
@@ -129,7 +129,7 @@ Generate a Brevpulse digest from:
 Raw Data: ${JSON.stringify(input.rawData, null, 2)}
 
 Config:
-- Plan: pro
+- Plan: ${input.plan}
 - Period: ${input.period}
 - Timezone: ${input.timezone || 'UTC'}
 - Locale: ${input.locale || 'en-US'}

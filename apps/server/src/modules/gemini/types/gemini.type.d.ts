@@ -4,5 +4,4 @@ export type GeminiInputs = {
   period: 'daily' | 'weekly';
   timezone?: string;
   locale?: string;
-  preferences?: { maxItemsPerSource?: number };
 };

@@ -6,8 +6,9 @@ import { UserTokenClass } from './user_token.schema';
 
 export type UserDocument = User & Document;
 
-type UserPreferences = {
-  deliveryTime?: string;
+export type UserPreferences = {
+  deliveryTime: string;
+  timezone?: string;
   filters?: { keywords?: string[] };
   deliveryChannels?: ('email' | 'push' | 'web' | 'slack')[];
 };
@@ -24,8 +25,11 @@ export type UserToken = {
    */
   isDisabled?: boolean;
 };
-@Schema({ timestamps: true })
+@Schema({ timestamps: true, _id: true })
 export class User {
+  @Prop({ type: Types.ObjectId })
+  _id: Types.ObjectId;
+
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
   email: string;
 
@@ -55,8 +59,9 @@ export class User {
 
   @Prop(
     raw({
-      deliveryTime: { type: String },
+      deliveryTime: { type: String, default: '08:00' },
       filters: { type: Object },
+      timezone: { type: String },
       deliveryChannels: {
         type: [String],
         enum: ['email', 'push', 'web', 'slack'],

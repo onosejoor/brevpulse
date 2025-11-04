@@ -5,12 +5,14 @@ import { Model } from 'mongoose';
 import { omitObjKeyVal } from 'src/utils/utils';
 import { RedisService } from '../redis/redis.service';
 import { UpdateUserDto } from '@/dtos/update-user.dto';
+import { UserSchedulerService } from './common/services/user_scheduler.service';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private redisService: RedisService,
+    private userScheduler: UserSchedulerService,
   ) {}
 
   async findOne(id: string) {
@@ -46,6 +48,10 @@ export class UserService {
 
   async update(id: string, updateUserDto: UpdateUserDto) {
     await this.userModel.updateOne({ _id: id }, updateUserDto);
+
+    if (updateUserDto.preferences?.deliveryTime) {
+      await this.userScheduler.reschedule(id);
+    }
 
     return {
       status: 'success',
