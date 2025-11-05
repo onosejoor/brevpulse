@@ -2,21 +2,21 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { InjectModel } from '@nestjs/mongoose';
+import { SchedulerRegistry } from '@nestjs/schedule';
+import { CronJob } from 'cron';
+import { Model } from 'mongoose';
 import {
   User,
   UserDocument,
   UserPreferences,
 } from '@/mongodb/schemas/user.schema';
-import { Model } from 'mongoose';
-import * as cron from 'cron';
 
 @Injectable()
 export class UserSchedulerService implements OnModuleInit {
-  private userCrons = new Map<string, cron.CronJob>();
-
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectQueue('email-queue') private emailQueue: Queue,
+    private schedulerRegistry: SchedulerRegistry,
   ) {}
 
   async onModuleInit() {
@@ -41,16 +41,16 @@ export class UserSchedulerService implements OnModuleInit {
     );
   }
 
-  async scheduleUser(userId: string, prefs: UserPreferences) {
+  scheduleUser(userId: string, prefs: UserPreferences) {
     const time = prefs.deliveryTime; // "08:00"
     const tz = prefs.timezone || 'UTC';
     const [hour, minute] = time.split(':');
 
     const cronPattern = `${minute} ${hour} * * *`;
 
-    await this.userCrons.get(userId)?.stop();
+    this.schedulerRegistry.deleteCronJob(userId);
 
-    const job = new cron.CronJob(
+    const job = new CronJob(
       cronPattern,
       async () => {
         await this.emailQueue.add('send-digest', {
@@ -64,26 +64,32 @@ export class UserSchedulerService implements OnModuleInit {
       tz,
     );
 
-    this.userCrons.set(userId, job);
+    this.schedulerRegistry.addCronJob(userId, job);
+    job.start();
   }
 
-  async unscheduleUser(userId: string) {
-    await this.userCrons.get(userId)?.stop();
-    this.userCrons.delete(userId);
-  }
-
-  // Call this when user updates deliveryTime
-  async reschedule(userId: string) {
-    const user = await this.userModel.findById(userId).lean();
-
-    if (!user) {
-      return;
+  unscheduleUser(userId: string) {
+    try {
+      const job = this.schedulerRegistry.getCronJob(userId);
+      job.stop();
+      this.schedulerRegistry.deleteCronJob(userId);
+    } catch {
+      // No job found, safe to ignore
     }
+  }
+
+  async reschedule(userId: string) {
+    const user = await this.userModel
+      .findById(userId)
+      .select('_id subscription preferences')
+      .lean();
+
+    if (!user) return;
 
     if (user.subscription === 'pro') {
-      await this.scheduleUser(userId, user.preferences);
+      this.scheduleUser(userId, user.preferences);
     } else {
-      await this.unscheduleUser(userId);
+      this.unscheduleUser(userId);
     }
   }
 }

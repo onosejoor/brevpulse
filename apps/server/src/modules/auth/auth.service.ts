@@ -93,7 +93,7 @@ export class AuthService {
 
     const payload = {
       email_verified: true,
-      id: findUser._id as string,
+      id: findUser._id.toString(),
       subscription: findUser.subscription,
     };
 
@@ -127,7 +127,7 @@ export class AuthService {
 
     const payload = {
       email_verified: user.email_verified,
-      id: user._id as string,
+      id: user._id.toString(),
       subscription: user.subscription,
     };
 

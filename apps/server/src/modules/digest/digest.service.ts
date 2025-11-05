@@ -1,4 +1,8 @@
-import { Injectable, InternalServerErrorException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { GmailConnectService } from '../integrations/services/gmail.service';
 import { GeminiService } from '../gemini/gemini.service';
 import { Model } from 'mongoose';
@@ -67,7 +71,9 @@ export class DigestService {
 
   @Cron('0 8 * * *') // 8:00 AM UTC
   async sendFreeDigests() {
-    const freeUsers = await this.userModel.find({ subscription: 'free' });
+    const freeUsers = await this.userModel
+      .find({ subscription: 'free' })
+      .lean();
 
     await Promise.all(
       freeUsers.map((u) =>
@@ -105,7 +111,7 @@ export class DigestService {
 
       return {
         status: 'success',
-        message: `email queue added ${users.map((u) => u.email).join(', ')}`,
+        message: `email queue added: ${users.map((u) => u.email).join(', ')}`,
       };
     } catch (err) {
       console.error('Error enqueuing daily digest jobs', err);
@@ -137,19 +143,40 @@ export class DigestService {
   }
 
   async generateWithGemini(user: AuthTokenPayload): Promise<DigestPayload> {
-    const digests = await Promise.allSettled([
-      this.gmailService.getGmailData(user.id),
-      this.calendarService.getCalendarData(user.id),
-    ]);
+    const userDoc = await this.userModel
+      .findById(user.id)
+      .select('tokens subscription')
+      .lean()
+      .exec();
 
-    const integrations = digests
+    if (!userDoc) {
+      throw new BadRequestException('User not found');
+    }
+
+    const activeTokens = userDoc.tokens
+      .filter((token) => !token.isDisabled)
+      .map((token) => token.provider);
+
+    const serviceMap: Record<string, () => Promise<any>> = {
+      gmail: () => this.gmailService.getGmailData(user.id),
+      calendar: () => this.calendarService.getCalendarData(user.id),
+    };
+
+    // Only run promises for active integrations
+    const promises = activeTokens
+      .filter((provider) => provider in serviceMap)
+      .map((provider) => serviceMap[provider]());
+
+    const results = await Promise.allSettled(promises);
+
+    const integrations = results
       .filter((res) => res.status === 'fulfilled')
       .map((res) => res.value.data);
 
     const input: GeminiInputs = {
       rawData: integrations.flat(),
       period: 'daily',
-      plan: user.subscription,
+      plan: userDoc.subscription,
     };
 
     return this.geminiService.generateDigest(input);

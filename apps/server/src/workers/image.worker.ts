@@ -1,3 +1,4 @@
+import appConfig from '@/common/config/app.config';
 import { UserService } from '@/modules/users/users.service';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
@@ -12,10 +13,11 @@ class JobData {
 @Processor('image-queue')
 export class ImageWorker extends WorkerHost {
   constructor(private userService: UserService) {
+    const appconf = appConfig();
     cloudinary.config({
-      cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-      api_key: process.env.CLOUDINARY_API_KEY,
-      api_secret: process.env.CLOUDINARY_API_SECRET,
+      cloud_name: appconf.CLOUDINARY_CLOUD_NAME,
+      api_key: appconf.CLOUDINARY_API_KEY,
+      api_secret: appconf.CLOUDINARY_API_SECRET,
     });
     super();
   }

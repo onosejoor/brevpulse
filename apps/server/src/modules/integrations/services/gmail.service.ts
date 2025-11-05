@@ -93,7 +93,10 @@ export class GmailConnectService {
   }
 
   async getGmailData(userId: string): Promise<ApiResDTO<GmailRes>> {
-    const user = await this.userModel.findById(userId).select(TOKEN_STRING);
+    const user = await this.userModel
+      .findById(userId)
+      .select(TOKEN_STRING)
+      .lean();
 
     if (!user) {
       return {
