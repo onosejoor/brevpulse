@@ -22,6 +22,8 @@ import { type Request, type Response } from 'express';
 import { GoogleAuthService } from './google.service';
 import { Throttle } from '@nestjs/throttler';
 import { throttlerOptions } from '@/utils/utils';
+import { jwtConstants } from '@/utils/jwt-constants';
+import appConfig from '@/common/config/app.config';
 
 @Controller('auth')
 export class AuthController {
@@ -46,11 +48,20 @@ export class AuthController {
   ) {
     const { bp_rtoken } = req.cookies;
 
-    const newTokens = await this.authService.refreshAccessToken(
+    const accessToken = await this.authService.refreshAccessToken(
       bp_rtoken as string,
     );
 
-    this.authService.sendCookies(res, newTokens);
+    const jwtTokens = jwtConstants();
+    const isProd = appConfig().NODE_ENV === 'production';
+
+    res.cookie('bp_atoken', accessToken, {
+      httpOnly: true,
+      secure: isProd,
+      sameSite: 'lax',
+      path: '/',
+      expires: new Date(Date.now() + jwtTokens.access.cookieExpiresMs),
+    });
 
     return {
       status: 'success',

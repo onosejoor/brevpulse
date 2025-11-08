@@ -57,39 +57,27 @@ export class JwtCustomService {
     return { accessToken, refreshToken };
   }
 
-  async refreshAccessToken(rawToken?: string): Promise<TokenClaims> {
+  async refreshAccessToken(
+    rawToken?: string,
+  ): Promise<TokenClaims['accessToken']> {
     if (!rawToken) throw new UnauthorizedException('No refresh token');
 
     const tokenHash = this.hash(rawToken);
 
-    const oldToken = await this.refreshTokenModel
+    const rftoken = await this.refreshTokenModel
       .findOne({
         token: tokenHash,
-        expiresAt: { $gt: new Date() },
       })
       .lean();
 
-    if (!oldToken) {
+    if (!rftoken) {
       throw new UnauthorizedException('Invalid refresh token');
     }
 
-    const newRefreshToken = this.generateToken();
-    const newHash = this.hash(newRefreshToken);
-
-    const [user] = await Promise.all([
-      this.userModel
-        .findById(oldToken.userId)
-        .select('_id email_verified subscription')
-        .lean(),
-      this.refreshTokenModel.deleteOne({ _id: oldToken._id }),
-      this.refreshTokenModel.create({
-        token: newHash,
-        userId: oldToken.userId,
-        expiresAt: new Date(
-          Date.now() + this.JwtConsts.refresh.jwtExpiresSeconds,
-        ),
-      }),
-    ]);
+    const user = await this.userModel
+      .findById(rftoken.userId)
+      .select('_id email_verified subscription')
+      .lean();
 
     if (!user) {
       throw new UnauthorizedException('User not found');
@@ -106,7 +94,7 @@ export class JwtCustomService {
       expiresIn: this.JwtConsts.access.jwtExpiresSeconds,
     });
 
-    return { accessToken, refreshToken: newRefreshToken };
+    return accessToken;
   }
 
   async revokeToken(rawToken: string): Promise<void> {
