@@ -1,0 +1,11 @@
+{
+  "extends": ["//"],
+  "tasks": {
+    "lint": {
+      "cache": true
+    },
+    "check-types": {
+      "cache": true
+    }
+  }
+}

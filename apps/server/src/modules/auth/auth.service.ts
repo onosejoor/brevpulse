@@ -45,6 +45,7 @@ export class AuthService {
 
     const newUser = new this.userModel({
       ...dto,
+      auth: 'local',
     });
 
     await newUser.save();
