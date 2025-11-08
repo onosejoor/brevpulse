@@ -6,11 +6,14 @@ import { omitObjKeyVal } from 'src/utils/utils';
 import { RedisService } from '../redis/redis.service';
 import { UpdateUserDto } from '@/dtos/update-user.dto';
 import { UserSchedulerService } from './common/services/user_scheduler.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
+    @InjectQueue('email-queue') private emailQueue: Queue,
     private redisService: RedisService,
     private userScheduler: UserSchedulerService,
   ) {}
@@ -46,16 +49,39 @@ export class UserService {
     return responseData;
   }
 
-  async update(id: string, updateUserDto: UpdateUserDto) {
+  async update(
+    id: string,
+    subscription: User['subscription'],
+    updateUserDto: UpdateUserDto,
+  ) {
+    if (subscription !== 'pro') {
+      delete updateUserDto.preferences?.deliveryTime;
+    }
+
     await this.userModel.updateOne({ _id: id }, updateUserDto);
 
-    if (updateUserDto.preferences?.deliveryTime) {
-      await this.userScheduler.reschedule(id);
+    if (subscription === 'pro' && updateUserDto.preferences?.deliveryTime) {
+      await this.userScheduler.scheduleUserDigest(id);
     }
 
     return {
       status: 'success',
       message: 'Profile update received, your new changes will reflect shortly',
     };
+  }
+
+  async downgradeToFree(userId: string) {
+    const user = await this.userModel.findById(userId);
+
+    if (!user) {
+      throw new Error('User Not Found');
+    }
+
+    user.subscription = 'free';
+    await user.save();
+
+    await this.emailQueue.removeJobScheduler(`pro-digest-${userId}`);
+
+    console.log(`User ${userId} downgraded to Free — now uses 6:00 AM UTC`);
   }
 }

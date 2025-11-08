@@ -59,7 +59,11 @@ export class GoogleAuthService {
             name,
             encryptionKey: crypto.randomBytes(32),
             avatar: picture,
+            auth: 'google',
             email,
+            preferences: {
+              timezone: 'UTC',
+            },
           },
           $set: {
             email_verified: verified_email,

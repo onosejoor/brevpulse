@@ -4,7 +4,7 @@ import argon2 from 'argon2';
 import crypto from 'crypto';
 import { UserTokenClass } from './user_token.schema';
 
-export type UserDocument = User & Document;
+export type UserDocument = Document<Types.ObjectId, any, User> & User;
 
 export type UserPreferences = {
   deliveryTime: string;
@@ -27,9 +27,6 @@ export type UserToken = {
 };
 @Schema({ timestamps: true, _id: true })
 export class User {
-  @Prop({ type: Types.ObjectId })
-  _id: Types.ObjectId;
-
   @Prop({ required: true, unique: true, lowercase: true, trim: true })
   email: string;
 
@@ -39,8 +36,14 @@ export class User {
   @Prop({ default: false })
   email_verified: boolean;
 
+  @Prop({ default: false })
+  isFirstTrial: boolean;
+
   @Prop({ required: false, default: '' })
   avatar: string;
+
+  @Prop({ enum: ['credentials', 'google'], default: 'credentials' })
+  auth: 'credentials' | 'google';
 
   @Prop({ type: Buffer, select: false })
   encryptionKey?: Buffer;

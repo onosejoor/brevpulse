@@ -19,6 +19,7 @@ import { RedisService } from '../redis/redis.service';
 import { getBufferKey } from '@/utils/utils';
 import { CalendarConnectService } from '../integrations/services/calendar.service';
 import { Cron } from '@nestjs/schedule';
+import { GitHubConnectService } from '../integrations/services/github.service';
 
 @Injectable()
 export class DigestService {
@@ -28,6 +29,7 @@ export class DigestService {
     private geminiService: GeminiService,
     private cryptoService: CryptoService,
     private redisService: RedisService,
+    private githubService: GitHubConnectService,
 
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectModel(Digest.name)
@@ -69,8 +71,10 @@ export class DigestService {
     return res;
   }
 
-  @Cron('0 8 * * *') // 8:00 AM UTC
+  @Cron('0 7 * * *') // 7:00 AM UTC
   async sendFreeDigests() {
+    console.log(`Sending cron job at: ${new Date(Date.now()).toISOString()}`);
+
     const freeUsers = await this.userModel
       .find({ subscription: 'free' })
       .lean();
@@ -160,9 +164,9 @@ export class DigestService {
     const serviceMap: Record<string, () => Promise<any>> = {
       gmail: () => this.gmailService.getGmailData(user.id),
       calendar: () => this.calendarService.getCalendarData(user.id),
+      github: () => this.githubService.getGitHubData(user.id),
     };
 
-    // Only run promises for active integrations
     const promises = activeTokens
       .filter((provider) => provider in serviceMap)
       .map((provider) => serviceMap[provider]());

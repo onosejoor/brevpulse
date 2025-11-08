@@ -1,78 +1,132 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { jwtConstants, jwtConstantstype } from 'src/utils/jwt-constants';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model, Types } from 'mongoose';
+import { jwtConstants } from 'src/utils/jwt-constants';
+import { createHash, randomBytes } from 'crypto';
+import {
+  RefreshToken,
+  RefreshTokenDocument,
+} from '@/mongodb/schemas/refresh-token.schema';
+import { User, UserDocument } from '@/mongodb/schemas/user.schema';
+
+type TokenClaims = {
+  accessToken: string;
+  refreshToken: string;
+};
 
 @Injectable()
 export class JwtCustomService {
-  private jwtTokens: jwtConstantstype;
-  constructor(private jwtService: JwtService) {
-    this.jwtTokens = jwtConstants();
+  private JwtConsts: ReturnType<typeof jwtConstants>;
+
+  constructor(
+    private jwtService: JwtService,
+    @InjectModel(RefreshToken.name)
+    private refreshTokenModel: Model<RefreshTokenDocument>,
+    @InjectModel(User.name)
+    private userModel: Model<UserDocument>,
+  ) {
+    this.JwtConsts = jwtConstants();
   }
 
-  async generateAuthTokens(payload: AuthTokenPayload) {
-    const [refreshToken, accessToken] = await Promise.all([
-      this.jwtService.signAsync(payload, {
-        secret: this.jwtTokens.refresh.secret,
-        expiresIn: this.jwtTokens.refresh.jwtExpiresSeconds,
-      }),
+  private hash(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
 
-      this.jwtService.signAsync(payload, {
-        expiresIn: this.jwtTokens.access.jwtExpiresSeconds,
-        secret: this.jwtTokens.access.secret,
+  private generateToken(): string {
+    return randomBytes(64).toString('hex');
+  }
+
+  async generateAuthTokens(payload: AuthTokenPayload): Promise<TokenClaims> {
+    const accessToken = this.jwtService.sign(payload, {
+      secret: this.JwtConsts.access.secret,
+      expiresIn: this.JwtConsts.access.jwtExpiresSeconds,
+    });
+
+    const refreshToken = this.generateToken();
+    const token = this.hash(refreshToken);
+
+    await this.refreshTokenModel.create({
+      token,
+      userId: new Types.ObjectId(payload.id),
+      expiresAt: new Date(
+        Date.now() + this.JwtConsts.refresh.jwtExpiresSeconds,
+      ),
+    });
+
+    return { accessToken, refreshToken };
+  }
+
+  async refreshAccessToken(rawToken?: string): Promise<TokenClaims> {
+    if (!rawToken) throw new UnauthorizedException('No refresh token');
+
+    const tokenHash = this.hash(rawToken);
+
+    const oldToken = await this.refreshTokenModel
+      .findOne({
+        token: tokenHash,
+        expiresAt: { $gt: new Date() },
+      })
+      .lean();
+
+    if (!oldToken) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+
+    const newRefreshToken = this.generateToken();
+    const newHash = this.hash(newRefreshToken);
+
+    const [user] = await Promise.all([
+      this.userModel
+        .findById(oldToken.userId)
+        .select('_id email_verified subscription')
+        .lean(),
+      this.refreshTokenModel.deleteOne({ _id: oldToken._id }),
+      this.refreshTokenModel.create({
+        token: newHash,
+        userId: oldToken.userId,
+        expiresAt: new Date(
+          Date.now() + this.JwtConsts.refresh.jwtExpiresSeconds,
+        ),
       }),
     ]);
 
-    return { refreshToken, accessToken };
-  }
-
-  async verifyToken(token: string, type: 'access' | 'refresh') {
-    const secret = this.jwtTokens[type].secret;
-
-    try {
-      const payload = await this.jwtService.verifyAsync<AuthTokenPayload>(
-        token,
-        {
-          secret,
-        },
-      );
-
-      return payload;
-    } catch {
-      throw new UnauthorizedException(`Invalid ${type} Token`);
-    }
-  }
-
-  async refreshAccessToken(token?: string) {
-    if (!token) {
-      throw new UnauthorizedException(`No Refresh Token`);
+    if (!user) {
+      throw new UnauthorizedException('User not found');
     }
 
-    const secret = this.jwtTokens.refresh.secret;
+    const payload: AuthTokenPayload = {
+      id: user.id.toString(),
+      email_verified: user.email_verified,
+      subscription: user.subscription,
+    };
 
+    const accessToken = this.jwtService.sign(payload, {
+      secret: this.JwtConsts.access.secret,
+      expiresIn: this.JwtConsts.access.jwtExpiresSeconds,
+    });
+
+    return { accessToken, refreshToken: newRefreshToken };
+  }
+
+  async revokeToken(rawToken: string): Promise<void> {
+    const token = this.hash(rawToken);
+    await this.refreshTokenModel.deleteOne({ token });
+  }
+
+  async revokeAllUserTokens(userId: string): Promise<void> {
+    await this.refreshTokenModel.deleteMany({
+      userId: new Types.ObjectId(userId),
+    });
+  }
+
+  async verifyAccessToken(token: string) {
     try {
-      const payload = await this.jwtService.verifyAsync<AuthTokenPayload>(
-        token,
-        {
-          secret,
-        },
-      );
-
-      const newPayload = {
-        id: payload.id,
-        email_verified: payload.email_verified,
-        subscription: payload.subscription,
-      };
-
-      const accessToken = await this.jwtService.signAsync(newPayload, {
-        secret: this.jwtTokens.access.secret,
-        expiresIn: this.jwtTokens.access.jwtExpiresSeconds,
+      return await this.jwtService.verifyAsync(token, {
+        secret: this.JwtConsts.access.secret,
       });
-
-      return accessToken;
-    } catch (error) {
-      console.log(error);
-
-      throw new UnauthorizedException(`Invalid Refresh Token`);
+    } catch {
+      throw new UnauthorizedException('Invalid access token');
     }
   }
 }

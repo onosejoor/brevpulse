@@ -7,6 +7,7 @@ import { User, UserSchema } from '@/mongodb/schemas/user.schema';
 import { RedisModule } from '../redis/redis.module';
 import { CustomJwtModule } from '@/modules/jwt/jwt.module';
 import { CalendarConnectService } from './services/calendar.service';
+import { GitHubConnectService } from './services/github.service';
 
 @Module({
   imports: [
@@ -15,8 +16,12 @@ import { CalendarConnectService } from './services/calendar.service';
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     RedisModule,
   ],
-  providers: [GmailConnectService, CalendarConnectService],
+  providers: [
+    GmailConnectService,
+    CalendarConnectService,
+    GitHubConnectService,
+  ],
   controllers: [IntegrationsController],
-  exports: [GmailConnectService, CalendarConnectService],
+  exports: [GmailConnectService, CalendarConnectService, GitHubConnectService],
 })
 export class IntegrationsModule {}

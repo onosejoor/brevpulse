@@ -1,5 +1,6 @@
 import appConfig from '@/common/config/app.config';
 import { UserService } from '@/modules/users/users.service';
+import { User } from '@/mongodb/schemas/user.schema';
 import { Processor, WorkerHost } from '@nestjs/bullmq';
 import { Job } from 'bullmq';
 import { v2 as cloudinary } from 'cloudinary';
@@ -8,6 +9,7 @@ class JobData {
   userId: string;
   fileBuffer: string;
   fileName: string;
+  subscription: User['subscription'];
 }
 
 @Processor('image-queue')
@@ -23,7 +25,7 @@ export class ImageWorker extends WorkerHost {
   }
 
   async process(job: Job<JobData>): Promise<any> {
-    const { userId, fileBuffer, fileName } = job.data;
+    const { userId, fileBuffer, fileName, subscription } = job.data;
 
     console.log(`Image Queue process recieved for file: ${fileName}`);
 
@@ -52,7 +54,7 @@ export class ImageWorker extends WorkerHost {
         uploadStream.end(buffer);
       });
 
-      await this.userService.update(userId, {
+      await this.userService.update(userId, subscription, {
         avatar: result.secure_url,
       });
       console.log(`Avatar uploaded  for user ${userId}`);

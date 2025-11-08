@@ -63,7 +63,7 @@ export class AuthService {
     });
 
     return {
-      status: 'success' as Status,
+      status: 'success',
       message: `A verification mail has been sent to ${newUser.email}, kindly verify your mail to continue`,
     };
   }

@@ -9,24 +9,35 @@ import { RedisModule } from '../redis/redis.module';
 import { BullModule } from '@nestjs/bullmq';
 import { registerQueueFatory } from '@/common/factories/redis.factory';
 import { ImageWorker } from '@/workers/image.worker';
+import { UserSchedulerService } from './common/services/user_scheduler.service';
 
 @Module({
   imports: [
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
-    BullModule.registerQueueAsync({
-      name: 'image-queue',
-      useFactory() {
-        return registerQueueFatory({
-          defaultJobOptions: {
-            attempts: 1,
-          },
-        });
+    BullModule.registerQueueAsync(
+      {
+        name: 'image-queue',
+        useFactory() {
+          return registerQueueFatory();
+        },
       },
-    }),
+      {
+        name: 'email-queue',
+        useFactory() {
+          return registerQueueFatory();
+        },
+      },
+    ),
     RedisModule,
   ],
   controllers: [UserController],
-  providers: [UserService, UserTokenService, ImageWorker, UserTokenService],
+  providers: [
+    UserService,
+    UserTokenService,
+    ImageWorker,
+    UserTokenService,
+    UserSchedulerService,
+  ],
   exports: [UserTokenService],
 })
 export class UserModule {}

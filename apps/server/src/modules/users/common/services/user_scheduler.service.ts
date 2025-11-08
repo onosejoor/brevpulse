@@ -1,95 +1,50 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { InjectModel } from '@nestjs/mongoose';
-import { SchedulerRegistry } from '@nestjs/schedule';
-import { CronJob } from 'cron';
-import { Model } from 'mongoose';
-import {
-  User,
-  UserDocument,
-  UserPreferences,
-} from '@/mongodb/schemas/user.schema';
+import { Model, type Types } from 'mongoose';
+import { User, UserDocument } from '@/mongodb/schemas/user.schema';
 
 @Injectable()
-export class UserSchedulerService implements OnModuleInit {
+export class UserSchedulerService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     @InjectQueue('email-queue') private emailQueue: Queue,
-    private schedulerRegistry: SchedulerRegistry,
   ) {}
 
-  async onModuleInit() {
-    await this.loadAllProUsers();
-  }
+  async scheduleUserDigest(userId: string | Types.ObjectId) {
+    const user = await this.userModel.findById(userId).lean();
 
-  async loadAllProUsers() {
-    const proUsers = await this.userModel
-      .find({
-        subscription: 'pro',
-        'preferences.deliveryTime': { $exists: true },
-      })
-      .select('_id preferences.deliveryTime preferences.timezone')
-      .lean();
+    if (!user) {
+      throw new BadRequestException('User not found');
+    }
 
-    await Promise.all(
-      proUsers.map((user) =>
-        Promise.resolve(
-          this.scheduleUser(user._id.toString(), user.preferences),
-        ),
-      ),
-    );
-  }
-
-  scheduleUser(userId: string, prefs: UserPreferences) {
-    const time = prefs.deliveryTime; // "08:00"
-    const tz = prefs.timezone || 'UTC';
-    const [hour, minute] = time.split(':');
-
+    const [hour, minute] = user.preferences.deliveryTime.split(':');
     const cronPattern = `${minute} ${hour} * * *`;
 
-    this.schedulerRegistry.deleteCronJob(userId);
+    const jobId = `pro-digest-${user._id.toString()}`;
 
-    const job = new CronJob(
-      cronPattern,
-      async () => {
-        await this.emailQueue.add('send-digest', {
-          user: { id: userId },
-          channel: 'email',
-        });
-        console.log(`Digest sent to ${userId} at ${time} ${tz}`);
+    await this.emailQueue.removeJobScheduler(jobId);
+
+    await this.emailQueue.add(
+      'send-digest',
+      {
+        type: 'send-digest',
+        data: {
+          user: { ...user, id: user._id },
+        },
       },
-      null,
-      true,
-      tz,
+      {
+        repeat: {
+          pattern: cronPattern,
+          tz: user.preferences.timezone || 'UTC',
+        },
+        jobId,
+      },
     );
 
-    this.schedulerRegistry.addCronJob(userId, job);
-    job.start();
-  }
-
-  unscheduleUser(userId: string) {
-    try {
-      const job = this.schedulerRegistry.getCronJob(userId);
-      job.stop();
-      this.schedulerRegistry.deleteCronJob(userId);
-    } catch {
-      // No job found, safe to ignore
-    }
-  }
-
-  async reschedule(userId: string) {
-    const user = await this.userModel
-      .findById(userId)
-      .select('_id subscription preferences')
-      .lean();
-
-    if (!user) return;
-
-    if (user.subscription === 'pro') {
-      this.scheduleUser(userId, user.preferences);
-    } else {
-      this.unscheduleUser(userId);
-    }
+    console.log(
+      `Scheduled digest for ${user._id.toString()} at ${cronPattern}`,
+    );
   }
 }

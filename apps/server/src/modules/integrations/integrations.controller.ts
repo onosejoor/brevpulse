@@ -1,6 +1,7 @@
 import {
   BadRequestException,
   Controller,
+  ForbiddenException,
   Get,
   HttpCode,
   Param,
@@ -13,12 +14,14 @@ import { GmailConnectService } from './services/gmail.service';
 import { AuthGuard } from '@/common/guards/auth.guard';
 import { UserToken } from '@/mongodb/schemas/user.schema';
 import { CalendarConnectService } from './services/calendar.service';
+import { GitHubConnectService } from './services/github.service';
 
 @Controller('connect')
 export class IntegrationsController {
   constructor(
     private gmailConnectService: GmailConnectService,
     private calenderConnectService: CalendarConnectService,
+    private githubConnectService: GitHubConnectService,
   ) {}
 
   @UseGuards(AuthGuard)
@@ -30,6 +33,13 @@ export class IntegrationsController {
       service: UserToken['provider'];
     };
 
+    const proServices = ['figma', 'github'];
+    const isProService = proServices.includes(service);
+
+    if (!isProService && user.subscription === 'free') {
+      throw new ForbiddenException('Subscription required');
+    }
+
     let url: string;
     switch (service) {
       case 'calendar':
@@ -37,6 +47,9 @@ export class IntegrationsController {
         break;
       case 'gmail':
         url = this.gmailConnectService.getGmailOauthUrl(user.id);
+        break;
+      case 'github':
+        url = this.githubConnectService.getGitHubOauthUrl(user.id);
         break;
       default:
         throw new BadRequestException(
@@ -59,6 +72,8 @@ export class IntegrationsController {
         return this.calenderConnectService.oauthCallback(code, state);
       case 'gmail':
         return this.gmailConnectService.oauthCallback(code, state);
+      case 'github':
+        return this.githubConnectService.oauthCallback(code, state);
       default:
         throw new BadRequestException(
           'Service does not exist, or not available yet',

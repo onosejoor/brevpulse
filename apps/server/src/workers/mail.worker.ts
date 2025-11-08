@@ -54,6 +54,11 @@ export class MailWorker extends WorkerHost {
           {
             const user: UserPayload = data.user;
 
+            if (!user.email_verified) {
+              console.warn('User email not verified, skipping');
+              return;
+            }
+
             const generated = await this.digestService.generateWithGemini(user);
 
             const html = generateEmailHTML(generated);

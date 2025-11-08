@@ -52,12 +52,13 @@ export class UserController {
     if (file) {
       await this.imageQueue.add('upload-avatar', {
         userId: user.id,
+        subscription: user.subscription,
         fileBuffer: file.buffer.toString('base64'),
         fileName: file.originalname,
       });
     }
 
-    return this.userService.update(user.id, updateUserDto);
+    return this.userService.update(user.id, user.subscription, updateUserDto);
   }
 
   @Patch('/tokens/:tokenId')
