@@ -6,6 +6,8 @@ import { brevpulseFeatures } from "./_components/consts";
 import { DigestTemplate } from "./_components/digest-template";
 import Navbar from "./_components/navbar";
 import HeroSection from "./_components/hero";
+import { Button } from "@repo/ui/components/ui/button";
+import { Twitter } from "lucide-react";
 
 export default function WaitlistPage() {
   return (
@@ -32,7 +34,7 @@ export default function WaitlistPage() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-12 max-w-6xl p-2.5 mx-auto">
           {brevpulseFeatures.map(({ icon: Icon, title, description }) => (
             <div key={title} className="flex gap-4">
               <Icon className="size-6 text-primary shrink-0 mt-1" />
@@ -104,9 +106,16 @@ export default function WaitlistPage() {
             className="w-full max-h-[75px] max-w-[150px]"
           />
 
-          <p className="text-sm text-muted-foreground">
-            © 2025 Brevpulse. Made for busy makers.
-          </p>
+          <div className="grid gap-2.5 justify-items-center sm:justify-items-end">
+            <p className="text-sm text-muted-foreground">
+              © 2025 Brevpulse. Made for busy makers.
+            </p>
+            <Button size={"icon"}>
+              <a href="https://x.com/brevpulse">
+                <Twitter className="size-5" />
+              </a>
+            </Button>
+          </div>
         </div>
       </footer>
     </div>

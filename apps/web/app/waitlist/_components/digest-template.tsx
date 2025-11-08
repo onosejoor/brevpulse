@@ -52,7 +52,7 @@ export function DigestTemplate() {
   const summary = mockDigest.summary;
 
   return (
-    <div className="w-full max-w-2xl mx-auto p-6">
+    <div className="w-full sm:max-w-2xl mx-auto">
       {/* Email Container */}
       <div className="bg-white dark:bg-slate-900 rounded-lg shadow-lg overflow-hidden border border-gray-200 dark:border-slate-700">
         {/* Header */}
