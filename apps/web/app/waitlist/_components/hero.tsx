@@ -1,6 +1,8 @@
 import { Badge } from "@repo/ui/components/ui/badge";
 import WaitlistForm from "./form";
 import { badgesArray } from "./consts";
+import { Button } from "@repo/ui/components/ui/button";
+import { Twitter } from "lucide-react";
 
 export default function HeroSection() {
   return (
@@ -19,7 +21,7 @@ export default function HeroSection() {
             "radial-gradient(ellipse 60% 60% at 50% 50%, #000 30%, transparent 70%)",
         }}
       />
-      <div className="text-center max-w-4xl mx-auto">
+      <div className="text-center max-w-4xl mx-auto space-y-5">
         <Badge
           variant="outline"
           className="mb-6 px-4 py-1.5 border-2 border-primary/20 animate-pulse-subtle"
@@ -42,7 +44,7 @@ export default function HeroSection() {
           </span>
         </p>
 
-        <div className="mb-12">
+        <div>
           <WaitlistForm />
         </div>
 
@@ -54,6 +56,13 @@ export default function HeroSection() {
             </Badge>
           ))}
         </div>
+
+        <a href="https://x.com/brevpulse">
+          <Button>
+            <Twitter className="size-5" />
+            Follow On X
+          </Button>
+        </a>
       </div>
     </section>
   );
