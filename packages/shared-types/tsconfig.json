@@ -4,6 +4,6 @@
     "outDir": "dist",
     "rootDir": "./src"
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "../../apps/server/src/modules/digest/common/digest.schema.ts"],
   "exclude": ["node_modules", "dist"]
 }

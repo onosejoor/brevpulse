@@ -10,6 +10,7 @@ import {
 } from './gemini.prompts';
 import { GeminiInputs } from './types/gemini.type';
 import { DigestPayload } from '@repo/shared-types/globals';
+import { digestPayloadGenerativeSchema } from '../digest/common/digest.zod-schema';
 
 @Injectable()
 export class GeminiService {
@@ -26,6 +27,7 @@ export class GeminiService {
         generationConfig: {
           responseMimeType: 'application/json',
           temperature: 0.3,
+          responseSchema: digestPayloadGenerativeSchema,
         },
         systemInstruction: {
           role: 'user',

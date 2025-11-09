@@ -98,11 +98,11 @@ export class GitHubConnectService {
       };
     }
 
-    const github = user.tokens.find((t) => t.provider === 'gmail');
+    const github = user.tokens.find((t) => t.provider === 'github');
     if (!github || github.isDisabled) {
       return {
         status: 'success',
-        data: { account: 'gmail', messages: [] },
+        data: { account: 'github', messages: [] },
         message: 'Gmail account disabled or not connected',
       };
     }

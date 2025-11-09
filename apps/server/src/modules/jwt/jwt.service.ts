@@ -44,15 +44,18 @@ export class JwtCustomService {
     });
 
     const refreshToken = this.generateToken();
-    const token = this.hash(refreshToken);
+    const tokenHash = this.hash(refreshToken);
 
-    await this.refreshTokenModel.create({
-      token,
-      userId: new Types.ObjectId(payload.id),
-      expiresAt: new Date(
-        Date.now() + this.JwtConsts.refresh.jwtExpiresSeconds,
-      ),
-    });
+    await this.refreshTokenModel.findOneAndUpdate(
+      { userId: new Types.ObjectId(payload.id) },
+      {
+        token: tokenHash,
+        expiresAt: new Date(
+          Date.now() + this.JwtConsts.refresh.jwtExpiresSeconds * 1000,
+        ),
+      },
+      { upsert: true, new: true },
+    );
 
     return { accessToken, refreshToken };
   }
@@ -84,7 +87,7 @@ export class JwtCustomService {
     }
 
     const payload: AuthTokenPayload = {
-      id: user.id.toString(),
+      id: user._id.toString(),
       email_verified: user.email_verified,
       subscription: user.subscription,
     };
