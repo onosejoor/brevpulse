@@ -157,18 +157,27 @@ export class DigestService {
       throw new BadRequestException('User not found');
     }
 
+    const isPro = userDoc.subscription === 'pro';
+    const proServices = ['github', 'figma', 'slack'];
+
     const activeTokens = userDoc.tokens
       .filter((token) => !token.isDisabled)
       .map((token) => token.provider);
 
-    const serviceMap: Record<string, () => Promise<any>> = {
+    const serviceMap: Record<string, () => Promise<ApiResDTO<any>>> = {
       gmail: () => this.gmailService.getGmailData(user.id),
       calendar: () => this.calendarService.getCalendarData(user.id),
       github: () => this.githubService.getGitHubData(user.id),
     };
 
     const promises = activeTokens
-      .filter((provider) => provider in serviceMap)
+      .filter((provider) => {
+        if (!(provider in serviceMap)) return false;
+        if (proServices.includes(provider)) {
+          return isPro;
+        }
+        return true;
+      })
       .map((provider) => serviceMap[provider]());
 
     const results = await Promise.allSettled(promises);

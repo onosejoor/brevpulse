@@ -54,7 +54,7 @@ export class GeminiService {
       }
 
       // Parse JSON (assuming Gemini returns valid JSON as per prompt)
-      let digest;
+      let digest: DigestPayload;
       try {
         digest = JSON.parse(responseText);
       } catch (parseError) {

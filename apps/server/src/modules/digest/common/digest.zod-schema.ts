@@ -2,6 +2,7 @@ import { Schema, SchemaType } from '@google/generative-ai';
 
 const digestActionGenerativeSchema: Schema = {
   type: SchemaType.OBJECT,
+  nullable: false,
   properties: {
     url: {
       type: SchemaType.STRING,
@@ -12,7 +13,6 @@ const digestActionGenerativeSchema: Schema = {
       format: 'enum',
       enum: ['primary', 'secondary'],
       description: 'The type of action, for styling purposes.',
-      nullable: true,
     },
     label: {
       type: SchemaType.STRING,
@@ -20,7 +20,7 @@ const digestActionGenerativeSchema: Schema = {
         'A short, actionable label for the button, e.g., "View Email".',
     },
   },
-  required: ['url'],
+  required: ['url', 'label'],
 };
 
 const digestItemGenerativeSchema: Schema = {
