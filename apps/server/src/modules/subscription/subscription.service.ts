@@ -33,7 +33,10 @@ export class SubscriptionService {
     const customerEmail = paystackData.customer?.email;
 
     if (!userId || !plan?.plan_code || amount !== 400000 || !customerEmail) {
-      this.logger.warn('Invalid charge.success payload');
+      this.logger.warn(
+        'Invalid charge.success payload received.',
+        JSON.stringify(paystackData),
+      );
       return;
     }
 
@@ -41,6 +44,7 @@ export class SubscriptionService {
     session.startTransaction();
 
     try {
+      this.logger.log(`Creating subscription from Paystack for user ${userId}`);
       const subResp = await this.paystack.subscription.create({
         customer: customerEmail,
         plan: plan.plan_code,
@@ -48,6 +52,9 @@ export class SubscriptionService {
       });
 
       if (!subResp.status) {
+        this.logger.error(
+          `Paystack subscription creation failed for user ${userId}: ${subResp.message}`,
+        );
         throw new InternalServerErrorException(subResp.message);
       }
 
@@ -79,9 +86,13 @@ export class SubscriptionService {
       );
 
       await session.commitTransaction();
+      this.logger.log(`Successfully created subscription for user ${userId}`);
     } catch (error: any) {
       await session.abortTransaction();
-      this.logger.error('Failed', error.message);
+      this.logger.error(
+        `Failed to create subscription for user ${userId}: ${error.message}`,
+        error.stack,
+      );
       throw new InternalServerErrorException('Subscription failed');
     } finally {
       session.endSession();
@@ -90,12 +101,16 @@ export class SubscriptionService {
 
   async cancelFromPaystack(paystackData: any): Promise<void> {
     const userId = paystackData.metadata?.user_id;
-    if (!userId) return;
+    if (!userId) {
+      this.logger.warn('User ID not found in Paystack cancellation payload.');
+      return;
+    }
 
     const session = await this.connection.startSession();
     session.startTransaction();
 
     try {
+      this.logger.log(`Canceling subscription for user ${userId}`);
       await this.subModel.updateOne(
         { user: userId, status: 'active' },
         { $set: { status: 'canceled', canceledAt: new Date() } },
@@ -111,10 +126,11 @@ export class SubscriptionService {
       );
 
       await session.commitTransaction();
+      this.logger.log(`Successfully canceled subscription for user ${userId}`);
     } catch (error) {
       this.logger.error(
         `Failed to cancel subscription for user ${userId}`,
-        error,
+        error.stack,
       );
       await session.abortTransaction();
       throw new InternalServerErrorException(
@@ -127,7 +143,10 @@ export class SubscriptionService {
 
   async handleRenewal(paystackData: any): Promise<void> {
     const subCode = paystackData.subscription?.subscription_code;
-    if (!subCode) return;
+    if (!subCode) {
+      this.logger.warn('Subscription code not found in renewal payload.');
+      return;
+    }
 
     const session = await this.connection.startSession();
     session.startTransaction();
@@ -136,6 +155,7 @@ export class SubscriptionService {
       const nextPayment = paystackData.subscription?.next_payment_date;
       const paidAt = paystackData.paid_at;
 
+      this.logger.log(`Handling renewal for subscription: ${subCode}`);
       await this.subModel.updateOne(
         { paystackSubscriptionCode: subCode, status: 'active' },
         {
@@ -149,6 +169,9 @@ export class SubscriptionService {
       );
 
       await session.commitTransaction();
+      this.logger.log(
+        `Successfully handled renewal for subscription: ${subCode}`,
+      );
     } catch (error) {
       this.logger.error(
         `Failed to handle renewal for sub ${subCode}`,
@@ -161,6 +184,7 @@ export class SubscriptionService {
   }
 
   async getActive(userId: string) {
+    this.logger.log(`Fetching active subscription for user: ${userId}`);
     return this.subModel.findOne({ user: userId, status: 'active' });
   }
 }
