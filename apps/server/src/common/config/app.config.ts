@@ -40,6 +40,12 @@ const appConfig = () => ({
   GITHUB_CLIENT_ID: process.env.GITHUB_CLIENT_ID,
   GITHUB_CLIENT_SECRET: process.env.GITHUB_CLIENT_SECRET,
   GITHUB_REDIRECT_URI: process.env.GITHUB_REDIRECT_URI,
+
+  paystack: {
+    secretKey: process.env.PAYSTACK_SECRET_KEY,
+    publicKey: process.env.PAYSTACK_PUBLIC_KEY,
+    proPlanCode: process.env.PAYSTACK_PRO_PLAN_CODE,
+  },
 });
 
 export type AppConfig = typeof appConfig;

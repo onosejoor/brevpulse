@@ -4,10 +4,10 @@ import {
   Body,
   Patch,
   UseGuards,
-  Req,
   HttpCode,
   UseInterceptors,
   UploadedFile,
+  Param,
 } from '@nestjs/common';
 import { UserService } from './users.service';
 import { AuthGuard } from 'src/common/guards/auth.guard';
@@ -20,6 +20,7 @@ import { fileInterceptorOptions } from './common/interceptor/file-interceptor.in
 import { type UpdateUserDto } from '@/dtos/update-user.dto';
 import { UserTokenService } from './common/user-token.service';
 import { UserToken } from '@/mongodb/schemas/user.schema';
+import { User } from '@/common/decorators/user.decorator';
 
 @Controller('user')
 @UseGuards(AuthGuard)
@@ -33,9 +34,7 @@ export class UserController {
 
   @Get('me')
   @HttpCode(200)
-  findOne(@Req() req: UserRequest) {
-    const { user } = req;
-
+  findOne(@User() user: AuthTokenPayload) {
     return this.userService.findOne(user.id);
   }
 
@@ -43,12 +42,10 @@ export class UserController {
   @HttpCode(200)
   @UseInterceptors(FileInterceptor('avatar', fileInterceptorOptions()))
   async update(
-    @Req() req: UserRequest,
+    @User() user: AuthTokenPayload,
     @Body() updateUserDto: UpdateUserDto,
     @UploadedFile() file: Express.Multer.File,
   ) {
-    const { user } = req;
-
     if (file) {
       await this.imageQueue.add('upload-avatar', {
         userId: user.id,
@@ -64,21 +61,19 @@ export class UserController {
   @Patch('/tokens/:tokenId')
   @HttpCode(200)
   updateToken(
-    @Req() req: UserRequest,
+    @User() user: AuthTokenPayload,
     @Body() updateTokenDto: Partial<Omit<UserToken, 'provider'>>,
+    @Param('tokenId') tokenId: string,
   ) {
-    const { user } = req;
-    const { tokenId } = req.params;
-
     return this.userTokenService.updateToken(user.id, tokenId, updateTokenDto);
   }
 
   @Patch('/tokens/:tokenId')
   @HttpCode(200)
-  deletToken(@Req() req: UserRequest) {
-    const { user } = req;
-    const { tokenId } = req.params;
-
+  deletToken(
+    @User() user: AuthTokenPayload,
+    @Param('tokenId') tokenId: string,
+  ) {
     return this.userTokenService.removeToken(user.id, tokenId);
   }
 }

@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Injectable,
   NotFoundException,
+  Logger,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Status } from '@repo/shared-types/globals';
@@ -26,6 +27,7 @@ class TokenRes {
 @Injectable()
 export class AuthService {
   private jwtTokens: jwtConstantstype;
+  private readonly logger = new Logger(AuthService.name);
 
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
@@ -37,9 +39,11 @@ export class AuthService {
   }
 
   async createUser(dto: CreateUserDto): Promise<ApiResDTO> {
+    this.logger.log(`Attempting to create user with email: ${dto.email}`);
     const userExists = await this.userModel.exists({ email: dto.email });
 
     if (userExists) {
+      this.logger.warn(`User with email ${dto.email} already exists.`);
       throw new BadRequestException('User Already Exist');
     }
 
@@ -49,6 +53,7 @@ export class AuthService {
     });
 
     await newUser.save();
+    this.logger.log(`User ${newUser.id} created successfully.`);
 
     const emailToken = await this.mailService.generateMailToken(
       {
@@ -58,6 +63,7 @@ export class AuthService {
       this.jwtTokens.email.jwtExpiresSeconds,
     );
 
+    this.logger.log(`Adding email verification job for user ${newUser.id}`);
     await this.emailQueue.add('verify-email', {
       type: 'verification',
       data: { token: emailToken, name: newUser.name, email: newUser.email },
@@ -70,11 +76,13 @@ export class AuthService {
   }
 
   async verifyEmail(token: string): Promise<ApiResDTO<TokenRes>> {
+    this.logger.log('Attempting to verify email with token.');
     const { status, data, message } =
       await this.mailService.decodeMailToken(token);
 
     if (status !== 'success') {
       return {
+        // Message is already logged in mail.service
         status: status as Status,
         message,
       };
@@ -83,14 +91,22 @@ export class AuthService {
     const findUser = await this.userModel.findById(data?._id);
 
     if (!findUser) {
+      this.logger.error(
+        `User with ID ${data?._id} not found during email verification.`,
+      );
       throw new NotFoundException('User does not exist');
     }
 
     if (findUser.email_verified) {
+      this.logger.warn(`User ${findUser._id.toString()} is already verified.`);
       throw new BadRequestException('User already verified');
     }
 
     await findUser.updateOne({ email_verified: true });
+
+    this.logger.log(
+      `Email for user ${findUser._id.toString()} verified successfully.`,
+    );
 
     const payload = {
       email_verified: true,
@@ -109,12 +125,14 @@ export class AuthService {
   }
 
   async signinUser(dto: SigninUserDTO): Promise<ApiResDTO<TokenRes>> {
+    this.logger.log(`Sign-in attempt for user: ${dto.email}`);
     const user = await this.userModel
       .findOne({ email: dto.email })
       .select('+password +email +_id')
       .lean();
 
     if (!user) {
+      this.logger.warn(`Sign-in failed: No user found for email ${dto.email}`);
       throw new NotFoundException('Invalid Credentials');
     }
 
@@ -123,6 +141,9 @@ export class AuthService {
       dto.password,
     );
     if (!isCorrectpassword) {
+      this.logger.warn(
+        `Sign-in failed: Invalid password for user ${dto.email}`,
+      );
       throw new NotFoundException('Invalid Credentials');
     }
 
@@ -135,6 +156,7 @@ export class AuthService {
     const { refreshToken, accessToken } =
       await this.customJwtService.generateAuthTokens(payload);
 
+    this.logger.log(`User ${user._id.toString()} signed in successfully.`);
     return {
       status: 'success',
       data: { refreshToken, accessToken },
@@ -148,6 +170,7 @@ export class AuthService {
 
   sendCookies(res: Response, data: TokenRes) {
     const isProd = appConfig().NODE_ENV === 'production';
+    this.logger.log('Sending auth cookies to client.');
 
     res.cookie('bp_rtoken', data.refreshToken, {
       httpOnly: true,
