@@ -46,6 +46,7 @@
     "mongoose": "^8.19.1",
     "multer": "^2.0.2",
     "paystack-sdk": "^3.2.0",
+    "paystack-webhook-types": "^0.1.1",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
     "simple-oauth2": "^5.1.0"

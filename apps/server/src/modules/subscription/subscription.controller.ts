@@ -26,6 +26,18 @@ export class SubscriptionController {
     return this.paystack.startCheckout(user.id);
   }
 
+  @Get('status')
+  @UseGuards(AuthGuard)
+  status(@User() user: AuthTokenPayload) {
+    return this.subService.getStatus(user.id);
+  }
+
+  @Get('cancel')
+  @UseGuards(AuthGuard)
+  async cancel(@User() user: AuthTokenPayload) {
+    return this.subService.cancelSubscription(user.id);
+  }
+
   @Post('webhook')
   @HttpCode(200)
   async webhook(@Req() req: Request, @Res() res: Response) {
@@ -36,18 +48,7 @@ export class SubscriptionController {
       payload,
     );
 
-    console.log(event);
-
-    if (event.event === 'charge.success') {
-      await this.subService.createFromPaystack(event.data);
-    }
-
-    if (
-      event.event === 'subscription.disable' ||
-      event.event === 'subscription.expired'
-    ) {
-      await this.subService.cancelFromPaystack(event.data);
-    }
+    await this.subService.handleWebhook(event);
 
     res.sendStatus(200);
   }

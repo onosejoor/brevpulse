@@ -1,17 +1,17 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 
-export type SubscriptionDocument = Subscription & Document;
+export type SubscriptionDocument = Subscription & Document<Types.ObjectId>;
 
 @Schema({ timestamps: true })
 export class Subscription {
   @Prop({ required: true, ref: 'User' })
   user: Types.ObjectId;
 
-  @Prop({ required: true })
+  @Prop({ required: true, select: false })
   paystackSubscriptionCode: string;
 
-  @Prop({ required: true })
+  @Prop({ required: true, select: false })
   paystackEmailToken: string;
 
   @Prop({
@@ -21,10 +21,10 @@ export class Subscription {
   plan: string;
 
   @Prop({
-    enum: ['active', 'canceled', 'past_due', 'incomplete', 'trialing'],
+    enum: ['active', 'canceled', 'past_due', 'incomplete', 'pending'],
     default: 'active',
   })
-  status: string;
+  status: 'active' | 'canceled' | 'past_due' | 'incomplete' | 'pending';
 
   @Prop({ required: true })
   currentPeriodStart: Date;
@@ -37,9 +37,6 @@ export class Subscription {
 
   @Prop({ default: false })
   isFirstTrial: boolean;
-
-  @Prop({ default: 0 })
-  amountPaidKobo: number; // ₦4,000 → 400000
 
   @Prop()
   canceledAt?: Date;

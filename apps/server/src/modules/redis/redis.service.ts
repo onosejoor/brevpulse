@@ -11,12 +11,16 @@ export class RedisService implements OnModuleInit, OnModuleDestroy {
   async onModuleDestroy() {
     await this.client.quit();
   }
-  async set(key: string, data: string) {
-    await this.client.set(key, data, 'EX', 300);
+  async set(key: string, data: string, expiration: number = 300) {
+    await this.client.set(key, data, 'EX', expiration);
   }
 
   async get(key: string): Promise<string | null> {
     return this.client.get(key);
+  }
+
+  async exists(key: string): Promise<number> {
+    return this.client.exists(key);
   }
 
   async getParsedData<T = any>(key: string) {

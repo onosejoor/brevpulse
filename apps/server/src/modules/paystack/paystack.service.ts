@@ -27,6 +27,7 @@ export class PaystackService {
       amount: '400000',
       plan: this.appConf.paystack.proPlanCode!,
       metadata: { user_id: userId },
+      channels: ['card'],
       callback_url: `${process.env.FRONTEND_URL}/success`,
     });
 
