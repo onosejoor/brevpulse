@@ -2,6 +2,7 @@ import {
   Injectable,
   InternalServerErrorException,
   Logger,
+  NotFoundException,
 } from '@nestjs/common';
 import { InjectModel, InjectConnection } from '@nestjs/mongoose';
 import {
@@ -14,9 +15,10 @@ import {
 } from '@/mongodb/schemas/transaction.schema';
 import { User, UserDocument } from '@/mongodb/schemas/user.schema';
 import { Model, Connection, ClientSession, Types } from 'mongoose';
-import { Paystack } from 'paystack-sdk';
 import { ApiResDTO } from '@/dtos/api.response.dto';
 import { RedisService } from '../redis/redis.service';
+import { InjectQueue } from '@nestjs/bullmq';
+import { Queue } from 'bullmq';
 import {
   ProcessedEvent,
   ProcessedEventDocument,
@@ -25,16 +27,9 @@ import { PaystackService } from '../paystack/paystack.service';
 import { NotificationService } from '../notification/notification.service';
 import { PaystackEvent, ExtractEvent } from '../paystack/paystack.types';
 
-// =======================================================
-
-// === Types ===
-type SubscriptionPlan = 'pro_monthly' | 'pro_yearly';
-
 @Injectable()
 export class SubscriptionService {
   private readonly logger = new Logger(SubscriptionService.name);
-  // Using ! is safe here as NestJS config should ensure this exists
-  private readonly paystack = new Paystack(process.env.PAYSTACK_SECRET_KEY!);
 
   constructor(
     @InjectModel(Subscription.name)
@@ -46,6 +41,7 @@ export class SubscriptionService {
     @InjectConnection() private readonly connection: Connection,
     @InjectModel(ProcessedEvent.name)
     private readonly processedEventModel: Model<ProcessedEventDocument>,
+    @InjectQueue('subscription') private subscriptionQueue: Queue,
     private redisService: RedisService,
     private paystackService: PaystackService,
     private notificationService: NotificationService,
@@ -113,9 +109,8 @@ export class SubscriptionService {
    * @param event The full charge.success webhook event payload.
    */
   private async handleChargeSuccess(
-    // The event type is known: PaystackEvent with event='charge.success'
     event: Extract<PaystackEvent, { event: 'charge.success' }>,
-  ): Promise<void> {
+  ) {
     // event.data is now strongly typed
     const { reference, amount, currency, authorization, status, channel } =
       event.data;
@@ -170,7 +165,7 @@ export class SubscriptionService {
    */
   private async handleSubscriptionCreate(
     data: ExtractEvent<'subscription.create'>,
-  ): Promise<void> {
+  ) {
     const {
       subscription_code,
       email_token,
@@ -180,8 +175,19 @@ export class SubscriptionService {
       next_payment_date,
       createdAt,
     } = data;
-    const userId = data.customer?.metadata?.user_id;
+    let userId = data.customer?.metadata?.user_id;
     const planCode = plan?.plan_code;
+
+    // Fallback: Find user by email if metadata is missing
+    if (!userId && data.customer?.email) {
+      const user = await this.userModel
+        .findOne({ email: data.customer.email })
+        .select('_id')
+        .lean();
+      if (user) {
+        userId = user._id.toString();
+      }
+    }
 
     if (!userId || !planCode || !customer?.email) {
       this.logger.warn('Missing required fields in subscription.create', data);
@@ -249,7 +255,7 @@ export class SubscriptionService {
     data:
       | ExtractEvent<'subscription.disable'>
       | ExtractEvent<'subscription.not_renew'>,
-  ): Promise<void> {
+  ) {
     const userId = data.customer?.metadata?.user_id;
     if (!userId) return;
 
@@ -269,9 +275,7 @@ export class SubscriptionService {
    * Handles 'invoice.update' event, usually for successful renewal.
    * @param data The Invoice event data payload from the webhook (type inferred by TS).
    */
-  private async handleInvoiceUpdate(
-    data: ExtractEvent<'invoice.update'>,
-  ): Promise<void> {
+  private async handleInvoiceUpdate(data: ExtractEvent<'invoice.update'>) {
     const { subscription, paid_at, next_payment_date } = data;
     const subCode = subscription?.subscription_code; // Note: subscription field is simplified in InvoiceData
     if (!subCode) {
@@ -295,8 +299,6 @@ export class SubscriptionService {
         this.logger.warn(
           `No active subscription found for renewal/invoice update: ${subCode}`,
         );
-      } else {
-        this.logger.log(`Renewal period updated for subscription: ${subCode}`);
       }
     });
   }
@@ -307,7 +309,7 @@ export class SubscriptionService {
    */
   private async handleInvoicePaymentFailed(
     data: ExtractEvent<'invoice.payment_failed'>,
-  ): Promise<void> {
+  ) {
     const subCode = data.subscription?.subscription_code;
     if (!subCode) return;
 
@@ -343,10 +345,7 @@ export class SubscriptionService {
       .lean();
 
     if (!sub) {
-      return {
-        status: 'error',
-        message: 'No subscription found',
-      };
+      throw new NotFoundException('No subscription found');
     }
 
     const isValid =
@@ -387,13 +386,11 @@ export class SubscriptionService {
         user: userId,
         status: 'active',
       })
+      .select('paystackSubscriptionCode paystackEmailToken')
       .lean();
 
     if (!sub) {
-      return {
-        status: 'error',
-        message: 'No active subscription found to cancel',
-      };
+      throw new NotFoundException('No active subscription found to cancel');
     }
 
     // Call Paystack API to cancel
@@ -422,7 +419,6 @@ export class SubscriptionService {
 
     return {
       status: 'success',
-
       message: 'Subscription cancelled successfully',
     };
   }
@@ -460,10 +456,7 @@ export class SubscriptionService {
   /**
    * Writes key to Redis (TTL 48h) and records the event in MongoDB for persistence.
    */
-  private async markEventProcessed(
-    eventId: string,
-    eventType: string,
-  ): Promise<void> {
+  private async markEventProcessed(eventId: string, eventType: string) {
     const filter = { eventId, eventType };
 
     await Promise.all([

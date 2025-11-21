@@ -18,20 +18,25 @@ import {
   Transaction,
   TransactionSchema,
 } from '@/mongodb/schemas/transaction.schema';
+import { BullModule } from '@nestjs/bullmq';
+import { SubscriptionProcessor } from './subscription.processor';
 
 @Module({
   imports: [
-    PaystackModule,
     MongooseModule.forFeature([
       { name: Subscription.name, schema: SubscriptionSchema },
+      { name: Transaction.name, schema: TransactionSchema },
       { name: User.name, schema: UserSchema },
       { name: ProcessedEvent.name, schema: ProcessedEventSchema },
-      { name: Transaction.name, schema: TransactionSchema },
     ]),
     RedisModule,
+    PaystackModule,
     NotificationModule,
+    BullModule.registerQueue({
+      name: 'subscription',
+    }),
   ],
   controllers: [SubscriptionController],
-  providers: [SubscriptionService],
+  providers: [SubscriptionService, SubscriptionProcessor],
 })
 export class SubscriptionModule {}
