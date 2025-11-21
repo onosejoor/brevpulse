@@ -1,4 +1,4 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -18,6 +18,7 @@ type TokenClaims = {
 @Injectable()
 export class JwtCustomService {
   private JwtConsts: ReturnType<typeof jwtConstants>;
+  private readonly logger = new Logger(JwtCustomService.name);
 
   constructor(
     private jwtService: JwtService,
@@ -44,16 +45,20 @@ export class JwtCustomService {
     });
 
     const refreshToken = this.generateToken();
-    const token = this.hash(refreshToken);
+    const tokenHash = this.hash(refreshToken);
 
-    await this.refreshTokenModel.create({
-      token,
-      userId: new Types.ObjectId(payload.id),
-      expiresAt: new Date(
-        Date.now() + this.JwtConsts.refresh.jwtExpiresSeconds,
-      ),
-    });
+    await this.refreshTokenModel.findOneAndUpdate(
+      { userId: new Types.ObjectId(payload.id) },
+      {
+        token: tokenHash,
+        expiresAt: new Date(
+          Date.now() + this.JwtConsts.refresh.jwtExpiresSeconds * 1000,
+        ),
+      },
+      { upsert: true, new: true },
+    );
 
+    this.logger.log(`Generated tokens for user ${payload.id}`);
     return { accessToken, refreshToken };
   }
 
@@ -61,6 +66,7 @@ export class JwtCustomService {
     rawToken?: string,
   ): Promise<TokenClaims['accessToken']> {
     if (!rawToken) throw new UnauthorizedException('No refresh token');
+    this.logger.log('Attempting to refresh access token');
 
     const tokenHash = this.hash(rawToken);
 
@@ -71,6 +77,7 @@ export class JwtCustomService {
       .lean();
 
     if (!rftoken) {
+      this.logger.warn('Invalid refresh token provided');
       throw new UnauthorizedException('Invalid refresh token');
     }
 
@@ -80,11 +87,12 @@ export class JwtCustomService {
       .lean();
 
     if (!user) {
+      this.logger.error(`User not found for refresh token: ${rftoken.token}`);
       throw new UnauthorizedException('User not found');
     }
 
     const payload: AuthTokenPayload = {
-      id: user.id.toString(),
+      id: user._id.toString(),
       email_verified: user.email_verified,
       subscription: user.subscription,
     };
@@ -94,18 +102,21 @@ export class JwtCustomService {
       expiresIn: this.JwtConsts.access.jwtExpiresSeconds,
     });
 
+    this.logger.log(`Refreshed access token for user ${user._id.toString()}`);
     return accessToken;
   }
 
   async revokeToken(rawToken: string): Promise<void> {
     const token = this.hash(rawToken);
     await this.refreshTokenModel.deleteOne({ token });
+    this.logger.log('Revoked a single refresh token');
   }
 
   async revokeAllUserTokens(userId: string): Promise<void> {
     await this.refreshTokenModel.deleteMany({
       userId: new Types.ObjectId(userId),
     });
+    this.logger.log(`Revoked all tokens for user ${userId}`);
   }
 
   async verifyAccessToken(token: string) {

@@ -3,6 +3,8 @@ import { Job } from 'bullmq';
 import { MailService } from 'src/modules/mail/mail.service';
 import { DigestService } from 'src/modules/digest/digest.service';
 import { generateEmailHTML } from '@/modules/digest/common/email-digest-template';
+import { NotificationService } from '@/modules/notification/notification.service';
+import { Logger } from '@nestjs/common';
 
 class JobData {
   type: string;
@@ -15,9 +17,11 @@ type UserPayload = AuthTokenPayload & {
 
 @Processor('email-queue')
 export class MailWorker extends WorkerHost {
+  private readonly logger = new Logger(MailWorker.name);
   constructor(
     private readonly mailService: MailService,
     private readonly digestService: DigestService,
+    private notificationService: NotificationService,
   ) {
     super();
   }
@@ -28,8 +32,9 @@ export class MailWorker extends WorkerHost {
       name,
     } = job;
 
-    const now = Date.now();
-    console.log(`Email Queue process recieved for job: ${name}`);
+    this.logger.log(
+      `Processing job '${name}' with type '${type}' from email-queue.`,
+    );
 
     try {
       switch (type) {
@@ -43,19 +48,19 @@ export class MailWorker extends WorkerHost {
               'Verify Your BrevPulse Email',
               verifyEmailTemplate,
             );
-
-            console.log(`Job finished for email queue, type: ${type}`);
-            console.log(`Job Time ${Date.now() - now}ms`);
           }
 
           break;
 
         case 'send-digest':
           {
+            this.logger.log(`Sending digest for user: ${data.user.id}`);
             const user: UserPayload = data.user;
 
             if (!user.email_verified) {
-              console.warn('User email not verified, skipping');
+              this.logger.warn(
+                `User ${user.id} email not verified, skipping digest.`,
+              );
               return;
             }
 
@@ -70,23 +75,31 @@ export class MailWorker extends WorkerHost {
             );
 
             if (success) {
-              console.log(`Digest sent to ${user.email} (user ${user.id})`);
+              this.logger.log(`Digest sent to ${user.email} (user ${user.id})`);
 
-              await this.digestService.saveDigest(generated, user.id);
+              await Promise.all([
+                this.digestService.saveDigest(generated, user.id),
+                this.notificationService.create(user.id, {
+                  type: 'digest',
+                  message: 'Your Daily Digest has been sent. check it out now',
+                  title: 'New digest available',
+                }),
+              ]);
             } else {
-              console.log(`Error sending digest mail: ${message}`);
+              this.logger.error(
+                `Error sending digest mail to ${user.email}: ${message}`,
+              );
             }
           }
 
           break;
 
         default:
-          console.warn('Job type is unknown');
+          this.logger.warn(`Job type '${type}' is unknown for job '${name}'.`);
           break;
       }
-      console.log(`Job response Time ${Date.now() - now}ms`);
     } catch (error) {
-      console.log('Error processing job: ', error);
+      this.logger.error(`Error processing job '${name}':`, error.stack);
     }
   }
 }

@@ -2,6 +2,7 @@ import {
   Injectable,
   BadRequestException,
   InternalServerErrorException,
+  Logger,
 } from '@nestjs/common';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import {
@@ -10,10 +11,12 @@ import {
 } from './gemini.prompts';
 import { GeminiInputs } from './types/gemini.type';
 import { DigestPayload } from '@repo/shared-types/globals';
+import { digestPayloadGenerativeSchema } from '../digest/common/digest.zod-schema';
 
 @Injectable()
 export class GeminiService {
   private genAI: GoogleGenerativeAI;
+  private readonly logger = new Logger(GeminiService.name);
 
   constructor() {
     this.genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
@@ -21,11 +24,13 @@ export class GeminiService {
 
   async generateDigest(input: GeminiInputs): Promise<DigestPayload> {
     try {
+      this.logger.log(`Generating ${input.period} digest...`);
       const model = this.genAI.getGenerativeModel({
         model: 'gemini-2.5-flash-lite',
         generationConfig: {
           responseMimeType: 'application/json',
           temperature: 0.3,
+          responseSchema: digestPayloadGenerativeSchema,
         },
         systemInstruction: {
           role: 'user',
@@ -52,7 +57,7 @@ export class GeminiService {
       }
 
       // Parse JSON (assuming Gemini returns valid JSON as per prompt)
-      let digest;
+      let digest: DigestPayload;
       try {
         digest = JSON.parse(responseText);
       } catch (parseError) {
@@ -65,11 +70,12 @@ export class GeminiService {
         throw new BadRequestException('Malformed digest response');
       }
 
+      this.logger.log(`Successfully generated ${input.period} digest`);
       return digest;
     } catch (error) {
-      console.error('Gemini Error:', error);
+      this.logger.error('Gemini Error:', error.stack);
       throw new BadRequestException(
-        'Failed to generate digest: ' + error.message,
+        `Failed to generate digest: ${error.message}`,
       );
     }
   }

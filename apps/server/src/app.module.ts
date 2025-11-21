@@ -1,4 +1,9 @@
-import { Module } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { mongooseConfigFactory } from './mongodb/connection.factory';
@@ -13,6 +18,9 @@ import { IntegrationsModule } from './modules/integrations/integrations.module';
 import { DigestModule } from './modules/digest/digest.module';
 import { ScheduleModule } from '@nestjs/schedule';
 import appConfig from './common/config/app.config';
+import { NotificationModule } from './modules/notification/notification.module';
+import { SubscriptionModule } from './modules/subscription/subscription.module';
+import { LoggerMiddleware } from './common/middleware/logger.middleware';
 
 @Module({
   imports: [
@@ -30,9 +38,11 @@ import appConfig from './common/config/app.config';
       imports: [ConfigModule],
       useFactory: mongooseConfigFactory,
     }),
+    NotificationModule,
     ScheduleModule.forRoot(),
     AuthModule,
     UserModule,
+    SubscriptionModule,
     IntegrationsModule,
     DigestModule,
   ],
@@ -43,4 +53,11 @@ import appConfig from './common/config/app.config';
     },
   ],
 })
-export class AppModule {}
+export class AppModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(LoggerMiddleware).forRoutes({
+      path: '/*wildcard',
+      method: RequestMethod.ALL,
+    });
+  }
+}

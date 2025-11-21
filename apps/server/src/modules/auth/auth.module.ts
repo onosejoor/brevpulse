@@ -8,17 +8,10 @@ import { BullModule } from '@nestjs/bullmq';
 import { registerQueueFatory } from 'src/common/factories/redis.factory';
 import { GoogleAuthService } from './google.service';
 import { CustomJwtModule } from '../jwt/jwt.module';
-import {
-  RefreshToken,
-  RefreshTokenSchema,
-} from '@/mongodb/schemas/refresh-token.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([
-      { name: User.name, schema: UserSchema },
-      { name: RefreshToken.name, schema: RefreshTokenSchema },
-    ]),
+    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
     BullModule.registerQueueAsync({
       name: 'email-queue',
       useFactory: registerQueueFatory,

@@ -3,10 +3,15 @@ import { MailService } from './mail.service';
 import { JwtModule } from '@nestjs/jwt';
 import { MailWorker } from 'src/workers/mail.worker';
 import { DigestModule } from '../digest/digest.module';
+import { NotificationModule } from '../notification/notification.module';
 
 @Module({
   providers: [MailService, MailWorker],
-  imports: [JwtModule.register({ global: true }), DigestModule],
+  imports: [
+    JwtModule.register({ global: true }),
+    DigestModule,
+    NotificationModule,
+  ],
   exports: [MailService],
 })
 export class MailModule {}

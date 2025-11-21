@@ -13,17 +13,17 @@ const sourceIcons: Record<DigestSource, string> = {
 };
 
 const sourceColors: Record<DigestSource, string> = {
-  gmail: '#64748b',
-  calendar: '#64748b',
-  github: '#64748b',
-  slack: '#64748b',
-  figma: '#64748b',
+  gmail: '#6d28d9',
+  calendar: '#6d28d9',
+  github: '#6d28d9',
+  slack: '#6d28d9',
+  figma: '#6d28d9',
 };
 
 const priorityColors: Record<DigestPriority, { bg: string; text: string }> = {
-  high: { bg: '#fef2f2', text: '#dc2626' },
-  medium: { bg: '#fffbeb', text: '#d97706' },
-  low: { bg: '#f0f9ff', text: '#0284c7' },
+  high: { bg: '#fae8ff', text: '#a21caf' }, // purple-100 + purple-800
+  medium: { bg: '#fef3c7', text: '#d97706' }, // amber-100 + amber-600
+  low: { bg: '#ede9fe', text: '#6d28d9' }, // violet-100 + primary purple
 };
 
 export function generateEmailHTML(payload: DigestPayload): string {
@@ -31,7 +31,7 @@ export function generateEmailHTML(payload: DigestPayload): string {
 
   const priorityTag = (priority: DigestPriority) => {
     const colors = priorityColors[priority];
-    return `<span class="priority-tag priority-${priority}" style="background-color: ${colors.bg}; color: ${colors.text};">${priority}</span>`;
+    return `<span class="priority-tag priority-${priority}" style="background-color: ${colors.bg}; color: ${colors.text}; border: 1px solid ${priority === 'low' ? '#d8b4fe' : 'transparent'};">${priority.toUpperCase()}</span>`;
   };
 
   const itemsHTML = items
@@ -44,7 +44,7 @@ export function generateEmailHTML(payload: DigestPayload): string {
             <table cellpadding="0" cellspacing="0" border="0">
               <tr>
                 <td style="padding-right: 10px; vertical-align: middle;">
-                  <div class="source-icon" style="color: ${sourceColors[item.source]};">
+                  <div class="source-icon" style="color: ${sourceColors[item.source]}; font-size: 20px;">
                     ${sourceIcons[item.source]}
                   </div>
                 </td>
@@ -83,14 +83,14 @@ export function generateEmailHTML(payload: DigestPayload): string {
     <table width="100%" cellpadding="0" cellspacing="0" border="0">
       <tr>
         <td style="text-align: center; vertical-align: top; width: 45%;">
-          <p class="summary-value">${summary.totalItems}</p>
+          <p class="summary-value" style="color: #6d28d9;">${summary.totalItems}</p>
           <p class="summary-label">Total updates</p>
         </td>
         <td style="text-align: center; vertical-align: middle; width: 10%;">
           <div class="summary-divider"></div>
         </td>
         <td style="text-align: center; vertical-align: top; width: 45%;">
-          <p class="summary-value highlight">${summary.byPriority.high || 0}</p>
+          <p class="summary-value highlight" style="color: #a21caf;">${summary.byPriority.high || 0}</p>
           <p class="summary-label">High priority</p>
         </td>
       </tr>
@@ -114,7 +114,7 @@ export function generateEmailHTML(payload: DigestPayload): string {
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
       background-color: #fafafa;
-      color: #0f172a;
+      color: #1f2937;
       line-height: 1.6;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
@@ -123,7 +123,7 @@ export function generateEmailHTML(payload: DigestPayload): string {
     .container {
       max-width: 600px;
       margin: 0 auto;
-      padding: 40px 20px;
+      padding: 40px 10px;
     }
 
     .header {
@@ -133,17 +133,20 @@ export function generateEmailHTML(payload: DigestPayload): string {
 
     .logo {
       font-size: 13px;
-      font-weight: 600;
-      letter-spacing: 0.5px;
-      color: #64748b;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: #6d28d9;
       text-transform: uppercase;
       margin-bottom: 16px;
     }
 
     .header h1 {
       font-size: 32px;
-      font-weight: 700;
-      color: #0f172a;
+      font-weight: 800;
+      background: linear-gradient(135deg, #6d28d9, #a78bfa);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
       margin-bottom: 8px;
       letter-spacing: -0.5px;
     }
@@ -157,11 +160,12 @@ export function generateEmailHTML(payload: DigestPayload): string {
     .plan-badge {
       display: inline-block;
       padding: 6px 14px;
-      background-color: #f1f5f9;
-      color: #475569;
+      background-color: #f3e8ff;
+      color: #6d28d9;
+      border: 1px solid #d8b4fe;
       border-radius: 6px;
       font-size: 12px;
-      font-weight: 500;
+      font-weight: 600;
       letter-spacing: 0.3px;
       text-transform: capitalize;
     }
@@ -172,26 +176,19 @@ export function generateEmailHTML(payload: DigestPayload): string {
       border-radius: 12px;
       padding: 32px;
       margin-bottom: 32px;
-    }
-
-    .summary-grid {
-      width: 100%;
-    }
-
-    .summary-item {
-      text-align: center;
+      box-shadow: 0 4px 12px rgba(109, 40, 217, 0.05);
     }
 
     .summary-value {
       font-size: 40px;
-      font-weight: 700;
-      color: #0f172a;
+      font-weight: 800;
       margin-bottom: 4px;
       line-height: 1;
     }
 
     .summary-value.highlight {
-      color: #dc2626;
+      color: #a21caf;
+      font-weight: 900;
     }
 
     .summary-label {
@@ -213,10 +210,10 @@ export function generateEmailHTML(payload: DigestPayload): string {
 
     .section-title {
       font-size: 14px;
-      font-weight: 600;
-      color: #64748b;
+      font-weight: 700;
+      color: #6d28d9;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.8px;
       margin-bottom: 20px;
     }
 
@@ -226,33 +223,36 @@ export function generateEmailHTML(payload: DigestPayload): string {
       border-radius: 12px;
       padding: 24px;
       margin-bottom: 16px;
-      transition: border-color 0.2s;
+      transition: all 0.2s ease;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .item-card::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 4px;
+      background: linear-gradient(to bottom, #6d28d9, #a78bfa);
+      opacity: 0;
+      transition: opacity 0.2s;
     }
 
     .item-card:hover {
-      border-color: #cbd5e1;
+      border-color: #c4b5fd;
+      box-shadow: 0 8px 25px rgba(109, 40, 217, 0.08);
     }
 
-    .item-header {
-      margin-bottom: 12px;
-    }
-
-    .item-title-row {
-      display: inline-block;
-      vertical-align: middle;
-    }
-
-    .source-icon {
-      flex-shrink: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
+    .item-card:hover::before {
+      opacity: 1;
     }
 
     .item-title {
       font-size: 16px;
-      font-weight: 600;
-      color: #0f172a;
+      font-weight: 700;
+      color: #1f2937;
       line-height: 1.4;
     }
 
@@ -261,9 +261,9 @@ export function generateEmailHTML(payload: DigestPayload): string {
       padding: 4px 10px;
       border-radius: 6px;
       font-size: 11px;
-      font-weight: 600;
-      text-transform: capitalize;
-      flex-shrink: 0;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
     }
 
     .item-description {
@@ -273,39 +273,34 @@ export function generateEmailHTML(payload: DigestPayload): string {
       margin-bottom: 16px;
     }
 
-    .item-footer {
-      width: 100%;
-    }
-
     .item-count {
       font-size: 13px;
       color: #64748b;
-      font-weight: 500;
-    }
-
-    .item-actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
+      font-weight: 600;
     }
 
     .action-btn {
       font-size: 13px;
-      font-weight: 500;
-      color: #0f172a;
+      font-weight: 600;
+      color: #6d28d9;
       text-decoration: none;
-      transition: color 0.2s;
+      padding: 6px 12px;
+      border: 1px solid #d8b4fe;
+      border-radius: 6px;
+      transition: all 0.2s;
       display: inline-block;
     }
 
     .action-btn:hover {
-      color: #3b82f6;
+      background-color: #6d28d9;
+      color: white;
+      border-color: #6d28d9;
     }
 
     .footer {
       text-align: center;
       padding-top: 32px;
-      border-top: 1px solid #e2e8f0;
+      border-top: 1px dashed #e2e8f0;
     }
 
     .footer-text {
@@ -314,125 +309,30 @@ export function generateEmailHTML(payload: DigestPayload): string {
       margin-bottom: 12px;
     }
 
-    .footer-links {
-      font-size: 13px;
-    }
-
     .footer-links a {
-      color: #64748b;
+      color: #6d28d9;
       text-decoration: none;
-      margin: 0 8px;
+      margin: 0 10px;
+      font-weight: 500;
       transition: color 0.2s;
     }
 
     .footer-links a:hover {
-      color: #0f172a;
+      color: #4c1d95;
     }
 
     @media (max-width: 640px) {
-      .container {
-        padding: 24px 16px;
-      }
-
-      .header {
-        margin-bottom: 32px;
-      }
-
-      .header h1 {
-        font-size: 24px;
-      }
-
-      .header-subtitle {
-        font-size: 14px;
-      }
-
-      .summary-section {
-        padding: 24px 20px;
-        margin-bottom: 24px;
-      }
-
-      .summary-grid {
-        gap: 20px;
-      }
-
-      .summary-value {
-        font-size: 32px;
-      }
-
-      .summary-divider {
-        height: 40px;
-      }
-
-      .item-card {
-        padding: 20px;
-        margin-bottom: 12px;
-      }
-
-      .item-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 12px;
-      }
-
-      .item-title {
-        font-size: 15px;
-      }
-
-      .item-description {
-        font-size: 13px;
-      }
-
-      .item-footer {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 10px;
-      }
-
-      .footer {
-        padding-top: 24px;
-      }
+      .container { padding: 24px 10px; }
+      .header h1 { font-size: 24px; }
+      .summary-section { padding: 24px 20px; }
+      .summary-value { font-size: 32px; }
+      .item-card { padding: 20px; }
     }
 
     @media (max-width: 480px) {
-      .container {
-        padding: 20px 12px;
-      }
-
-      .header h1 {
-        font-size: 22px;
-      }
-
-      .summary-section {
-        padding: 20px 16px;
-      }
-
-      .summary-grid {
-        flex-direction: column;
-        gap: 24px;
-      }
-
-      .summary-divider {
-        width: 48px;
-        height: 1px;
-      }
-
-      .item-card {
-        padding: 16px;
-        border-radius: 10px;
-      }
-
-      .item-title {
-        font-size: 14px;
-      }
-
-      .item-description {
-        font-size: 13px;
-        margin-bottom: 12px;
-      }
-
-      .action-btn {
-        font-size: 12px;
-      }
+      .header h1 { font-size: 22px; }
+      .summary-divider { width: 48px; height: 1px; }
+      .action-btn { font-size: 12px; padding: 5px 10px; }
     }
   </style>
 </head>

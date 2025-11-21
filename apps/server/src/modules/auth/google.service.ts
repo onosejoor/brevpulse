@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { OAuth2Client } from 'google-auth-library';
 import { Model } from 'mongoose';
@@ -11,6 +11,7 @@ import crypto from 'crypto';
 @Injectable()
 export class GoogleAuthService {
   private oauth2Client: OAuth2Client;
+  private readonly logger = new Logger(GoogleAuthService.name);
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private customJwtService: JwtCustomService,
@@ -24,6 +25,7 @@ export class GoogleAuthService {
   }
 
   getGoogleOauthUrl() {
+    this.logger.log('Generating Google OAuth URL.');
     return this.oauth2Client.generateAuthUrl({
       access_type: 'offline',
       scope: [
@@ -36,6 +38,7 @@ export class GoogleAuthService {
 
   async oauthCallback(code: string) {
     try {
+      this.logger.log('Handling Google OAuth callback.');
       const { tokens } = await this.oauth2Client.getToken(code);
       this.oauth2Client.setCredentials(tokens);
 
@@ -49,9 +52,11 @@ export class GoogleAuthService {
       const { name, picture, email, verified_email } = userRes;
 
       if (!email) {
+        this.logger.error('Google OAuth callback failed: No email provided.');
         throw new BadRequestException('Email Not Provided By Google');
       }
 
+      this.logger.log(`Upserting user from Google OAuth: ${email}`);
       const user = await this.userModel.findOneAndUpdate(
         { email },
         {
@@ -80,7 +85,7 @@ export class GoogleAuthService {
 
       return this.customJwtService.generateAuthTokens(tokenPayload);
     } catch (error) {
-      console.error('Google OAuth Callback Error:', error);
+      this.logger.error('Google OAuth Callback Error:', error.stack);
       throw new BadRequestException(
         'Failed to authenticate with Google: ' + error.message,
       );

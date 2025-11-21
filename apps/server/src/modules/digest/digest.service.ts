@@ -3,6 +3,7 @@ import {
   Injectable,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { GmailConnectService } from '../integrations/services/gmail.service';
 import { GeminiService } from '../gemini/gemini.service';
 import { Model } from 'mongoose';
@@ -23,6 +24,7 @@ import { GitHubConnectService } from '../integrations/services/github.service';
 
 @Injectable()
 export class DigestService {
+  private readonly logger = new Logger(DigestService.name);
   constructor(
     private gmailService: GmailConnectService,
     private calendarService: CalendarConnectService,
@@ -43,9 +45,13 @@ export class DigestService {
 
     const cachedData = await this.redisService.getParsedData(cacheKey);
     if (cachedData) {
+      this.logger.log(`Cache hit for user digests: ${userId}`);
       return cachedData;
     }
 
+    this.logger.log(
+      `Cache miss for user digests: ${userId}. Fetching from DB.`,
+    );
     const [digests, encryptionKey] = await Promise.all([
       this.digestModel
         .find({ userId: userId })
@@ -73,7 +79,9 @@ export class DigestService {
 
   @Cron('0 7 * * *') // 7:00 AM UTC
   async sendFreeDigests() {
-    console.log(`Sending cron job at: ${new Date(Date.now()).toISOString()}`);
+    this.logger.log(
+      `Running daily digest cron job for free users at: ${new Date(Date.now()).toISOString()}`,
+    );
 
     const freeUsers = await this.userModel
       .find({ subscription: 'free' })
@@ -95,6 +103,7 @@ export class DigestService {
 
   async handleDailyDigestCron(): Promise<ApiResDTO> {
     try {
+      this.logger.log('Manually triggering daily digest for all users.');
       const users = await this.userModel
         .find()
         .select('_id email name subscription email_verified')
@@ -118,12 +127,13 @@ export class DigestService {
         message: `email queue added: ${users.map((u) => u.email).join(', ')}`,
       };
     } catch (err) {
-      console.error('Error enqueuing daily digest jobs', err);
+      this.logger.error('Error enqueuing daily digest jobs', err.stack);
       throw new InternalServerErrorException(' Internal Server Error');
     }
   }
 
   async saveDigest(payload: DigestPayload, userId: string): Promise<ApiResDTO> {
+    this.logger.log(`Saving digest for user: ${userId}`);
     const { encrypted, iv, authTag } = await this.cryptoService.encrypt(
       payload,
       userId,
@@ -138,6 +148,7 @@ export class DigestService {
       summary: payload.summary,
     });
 
+    this.logger.log(`Clearing digest cache for user: ${userId}`);
     await this.redisService.deleteByPattern(`user:${userId}:digests:all`);
 
     return {
@@ -147,6 +158,7 @@ export class DigestService {
   }
 
   async generateWithGemini(user: AuthTokenPayload): Promise<DigestPayload> {
+    this.logger.log(`Generating digest with Gemini for user: ${user.id}`);
     const userDoc = await this.userModel
       .findById(user.id)
       .select('tokens subscription')
@@ -157,18 +169,27 @@ export class DigestService {
       throw new BadRequestException('User not found');
     }
 
+    const isPro = userDoc.subscription === 'pro';
+    const proServices = ['github', 'figma', 'slack'];
+
     const activeTokens = userDoc.tokens
       .filter((token) => !token.isDisabled)
       .map((token) => token.provider);
 
-    const serviceMap: Record<string, () => Promise<any>> = {
+    const serviceMap: Record<string, () => Promise<ApiResDTO<any>>> = {
       gmail: () => this.gmailService.getGmailData(user.id),
       calendar: () => this.calendarService.getCalendarData(user.id),
       github: () => this.githubService.getGitHubData(user.id),
     };
 
     const promises = activeTokens
-      .filter((provider) => provider in serviceMap)
+      .filter((provider) => {
+        if (!(provider in serviceMap)) return false;
+        if (proServices.includes(provider)) {
+          return isPro;
+        }
+        return true;
+      })
       .map((provider) => serviceMap[provider]());
 
     const results = await Promise.allSettled(promises);
@@ -177,6 +198,9 @@ export class DigestService {
       .filter((res) => res.status === 'fulfilled')
       .map((res) => res.value.data);
 
+    this.logger.log(
+      `Fetched data from ${integrations.length} integrations for user: ${user.id}`,
+    );
     const input: GeminiInputs = {
       rawData: integrations.flat(),
       period: 'daily',
